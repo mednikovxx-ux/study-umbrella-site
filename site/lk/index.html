@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Личный кабинет — Study Umbrella</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#1D4E5F">
+<link rel="icon" type="image/png" href="/img/favicon.png">
+<link rel="stylesheet" href="/css/fonts.css">
+<style>
+:root{--paper:#F5F0E8;--ink:#1E2B2F;--muted:#5A6669;--line:#E2D9CB;--teal:#2F6F73;--red-btn:#B8303C;--butter:#F3D27A;--teal-text:#1F5656}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font:400 16px/1.5 "Onest",system-ui,-apple-system,"Segoe UI",sans-serif}
+button,input,select,textarea{font:inherit}
+:focus-visible{outline:3px solid var(--butter);outline-offset:2px}
+.auth{min-height:100vh;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.auth-side{background:var(--teal);color:var(--paper);padding:44px clamp(24px,5vw,80px);display:flex;flex-direction:column;justify-content:space-between;gap:40px}
+.auth-logo{width:150px;display:block}
+.auth-top{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.auth-back{color:var(--paper);font:600 15px/1 Onest,system-ui,sans-serif;text-decoration:none;border:2px solid rgba(245,240,232,.6);border-radius:999px;padding:10px 16px;white-space:nowrap}
+.auth-back:hover{background:var(--paper);color:var(--teal)}
+.auth-copy{display:flex;flex-direction:column;gap:18px}
+.auth-hand{margin:0;font:700 30px/1.1 "Caveat",cursive;color:var(--butter);transform:rotate(-2deg);transform-origin:left}
+.auth-side h1{margin:0;font:700 clamp(36px,3.6vw,60px)/1.05 "Kyiv Type Serif",Georgia,serif;max-width:560px}
+.auth-copy p{margin:0;font-size:19px;color:rgba(245,240,232,.85);max-width:520px}
+.auth-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;font-size:17px}
+.auth-list li{display:flex;gap:10px;align-items:center}
+.auth-list svg{color:var(--butter);flex:none}
+.auth-main{display:flex;align-items:center;justify-content:center;padding:40px clamp(16px,3vw,48px)}
+.auth-card{width:100%;max-width:460px;background:#fff;border-radius:32px;padding:36px 32px;display:flex;flex-direction:column;gap:16px}
+.auth-card h2{margin:0;font:700 34px/1.1 "Kyiv Type Serif",Georgia,serif}
+.auth-muted{margin:0;color:var(--muted);font-size:16px}
+.auth-tg{display:flex;align-items:center;justify-content:center;gap:12px;min-height:58px;border-radius:999px;border:0;background:#2AABEE;color:#fff;font-weight:600;font-size:18px;cursor:pointer}
+.auth-tg:hover{filter:brightness(.95)}
+.auth-or{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:14px}
+.auth-or::before,.auth-or::after{content:"";flex:1;height:1px;background:var(--line)}
+.auth-tabs{display:flex;background:var(--paper);border-radius:999px;padding:4px;gap:4px}
+.auth-tabs button{flex:1;border:0;background:transparent;border-radius:999px;padding:10px;font-weight:600;font-size:15px;color:var(--muted);cursor:pointer}
+.auth-tabs button[aria-selected="true"]{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(30,43,47,.15)}
+.auth-form{display:flex;flex-direction:column;gap:8px}
+.auth-form label{font-size:14px;color:var(--muted);font-weight:500;margin-top:4px}
+.auth-form input,.auth-form select{padding:15px 18px;border-radius:14px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font-size:17px;width:100%}
+.auth-btn{margin-top:8px;min-height:56px;border-radius:999px;border:0;background:var(--ink);color:#fff;font-weight:600;font-size:17px;cursor:pointer;width:100%}
+.auth-btn:hover{filter:brightness(1.15)}
+.auth-link{background:none;border:0;padding:0;color:var(--teal-text);font-size:15px;text-decoration:underline;cursor:pointer;align-self:flex-start;text-align:left}
+.auth-msg{margin:0;font-size:14px;background:#FFF0C7;border-radius:12px;padding:10px 14px}
+.auth-hint{margin:0;font-size:14px;color:var(--muted);background:var(--paper);border-radius:14px;padding:12px 14px}
+.auth-code{display:flex;gap:10px}
+.auth-code input{width:100%;text-align:center;font-size:26px;font-weight:600;padding:14px 0;border-radius:14px;border:1px solid var(--line);background:var(--paper)}
+.auth-roles{display:grid;gap:10px}
+.auth-role{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;border:1.5px solid var(--ink);background:#fff;border-radius:18px;padding:14px 18px;cursor:pointer}
+.auth-role:hover{background:var(--paper)}
+.auth-role.admin{background:var(--ink);color:#fff}.auth-role.admin span{color:rgba(255,255,255,.75)}.auth-role.admin:hover{filter:brightness(1.2)}
+.auth-role b{font-size:17px}.auth-role span{font-size:14px;color:var(--muted)}
+.lk-boot{display:flex;align-items:center;justify-content:center;min-height:60vh;color:var(--muted)}
+@media (max-width:900px){.auth{grid-template-columns:minmax(0,1fr)}.auth-side{padding:28px 20px;gap:24px}.auth-list{display:none}.auth-card{padding:28px 20px}}
+</style>
+</head>
+<body>
+<div id="root"><div class="lk-boot">Загружаем кабинет…</div></div>
+<noscript>Для личного кабинета нужен включённый JavaScript.</noscript>
+<script src="/lk/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+node_modules/
+.DS_Store
+src/lk/owner.local.js
+# собранный кабинет содержит контакты владельца: собирается командой npm run build
+site/lk/app.js

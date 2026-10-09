@@ -1,0 +1,7 @@
+/*FONTS-LOCAL*/
+/* Onest (все начертания 400–700 одним переменным файлом) и Caveat 700 — урезаны до кириллицы, латиницы
+   с надстрочными знаками (турецкий, испанский, итальянский), цифр и знаков: как пересобрать — tools/fonts.md. */
+@font-face{font-family:"Onest";font-style:normal;font-weight:400 700;font-display:swap;src:url("/study-umbrella-site/fonts/onest-var.woff2") format("woff2")}
+@font-face{font-family:"Caveat";font-style:normal;font-weight:700;font-display:swap;src:url("/study-umbrella-site/fonts/caveat-700.woff2") format("woff2")}
+/*END-FONTS-LOCAL*/
+@font-face{font-family:"Kyiv Type Serif";font-weight:700;font-display:swap;src:url("/study-umbrella-site/fonts/KyivTypeSerif-Bold.woff2") format("woff2"),local("Kyiv*Type Serif Bold"),local("KyivTypeSerif-Bold")}

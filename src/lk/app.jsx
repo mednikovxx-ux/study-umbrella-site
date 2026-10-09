@@ -7,7 +7,7 @@ import {
 
 import { storage } from "./storage.js";
 import AdminAccess from "./admin-access.jsx";
-import { AdminInbox, CallAdminButton, EmojiPicker, EXTRA_CSS, FormatBadge, FormatPanel, GroupsPanel, LibraryPanel, PayRequestModal, ProgramEditor, ProgressCharts, QUICK_REACTIONS, StudentLessons, StudentOverview, CHANGE_DEADLINE_H, PAY_DEADLINE_H, seedLibrary, withPackagePaid } from "./extras.jsx";
+import { GoalMarker, CHECK_KINDS, SelfMonthPanel, LESSON_KINDS, PayrollCard, slotKind, teacherPayroll, UmbrellaPanel, umbrellaOf, UMBRELLA_PRICES, AdminInbox, CallAdminButton, EmojiPicker, EXTRA_CSS, FormatBadge, FormatPanel, GroupsPanel, LibraryPanel, PayRequestModal, ProgramEditor, ProgressCharts, QUICK_REACTIONS, StudentLessons, StudentOverview, CHANGE_DEADLINE_H, PAY_DEADLINE_H, seedLibrary, withPackagePaid } from "./extras.jsx";
 const LOGO_DATA_URI = "/img/logo.png";
 
 /* ----------------------------- helpers ----------------------------- */
@@ -408,7 +408,16 @@ const seedStudents = [
     grammarTopics: [{ id: uid("g"), name: "История России до XVII века", status: "in_progress" }],
     vocabTopics: [{ id: uid("v"), name: "Даты и события", status: "in_progress" }],
     materials: [], homework: [], messages: [],
-    packageProductId: "p_hi8", packageTotal: 8, packageAssignedAt: isoDate(-25), packageLabel: "Пакет: 8 занятий", checkpoints: [], examTarget: null, examTopics: [], examGrammar: [], examVocab: [], examMaterials: [], canRequestTeacherChange: false, teacherChangeRequest: null,
+    packageProductId: null, packageTotal: null, packageAssignedAt: null, packageLabel: "", checkpoints: [], examTarget: { exam: "ОГЭ", targetScore: "", examDate: "" }, examTopics: [], examGrammar: [], examVocab: [], examMaterials: [], canRequestTeacherChange: false, teacherChangeRequest: null,
+    format: "umbrella", umbrellaId: "um1",
+    pageTheme: { bannerColor: "", bannerEmoji: "", accentColor: "", stickers: [] },
+  },
+  {
+    id: "s5", teacherId: "t6", name: "Петя Соколов", contact: "мама Ирина +7 901 000-00-11",
+    startLevel: "Базовый", currentLevel: "Базовый", goal: "ОГЭ по обществознанию, 9 класс", status: "active", planType: "package", startNote: "",
+    grammarTopics: [{ id: uid("g"), name: "Человек и общество", status: "in_progress", level: "Базовый" }], vocabTopics: [], materials: [], homework: [], messages: [],
+    packageProductId: null, packageTotal: null, packageAssignedAt: null, packageLabel: "", checkpoints: [], examTarget: { exam: "ОГЭ", targetScore: "", examDate: "" }, examTopics: [], examGrammar: [], examVocab: [], examMaterials: [], canRequestTeacherChange: false, teacherChangeRequest: null,
+    format: "umbrella", umbrellaId: "um1",
     pageTheme: { bannerColor: "", bannerEmoji: "", accentColor: "", stickers: [] },
   },
   {
@@ -416,7 +425,8 @@ const seedStudents = [
     startLevel: "A2", currentLevel: "B1", goal: "Заговорить на английском для работы", status: "active", planType: "package", startNote: "Понимает, но боится говорить.",
     grammarTopics: [{ id: uid("g"), name: "Present Perfect", status: "in_progress" }], vocabTopics: [{ id: uid("v"), name: "Work & Career", status: "in_progress" }],
     materials: [], homework: [], messages: [],
-    packageProductId: "p12", packageTotal: 12, packageAssignedAt: isoDate(-20), packageLabel: "Пакет: 12 занятий", checkpoints: [], examTarget: null, examTopics: [], examGrammar: [], examVocab: [], examMaterials: [], canRequestTeacherChange: false, teacherChangeRequest: null,
+    packageProductId: null, packageTotal: 4, packageAssignedAt: isoDate(-20), packageLabel: "«Сам, но не один»: абонемент на месяц, 4 занятия", checkpoints: [], examTarget: null, examTopics: [], examGrammar: [], examVocab: [], examMaterials: [], canRequestTeacherChange: false, teacherChangeRequest: null,
+    format: "self",
     pageTheme: { bannerColor: "", bannerEmoji: "", accentColor: "", stickers: [] },
   },
   {
@@ -428,6 +438,9 @@ const seedStudents = [
     pageTheme: { bannerColor: "", bannerEmoji: "", accentColor: "", stickers: [] },
   },
 ];
+
+// Demo: Петя занимается историей и обществознанием одним пакетом «Под одним зонтом».
+const seedUmbrellas = [{ id: "um1", name: "Петя Соколов", contact: "мама Ирина +7 901 000-00-11", total: 12, assignedAt: isoDate(-25), memberIds: ["s2", "s5"], createdAt: new Date().toISOString() }];
 
 const SUBJECT_GENITIVE = {
   english: "английскому языку", spanish: "испанскому языку", chinese: "китайскому языку", korean: "корейскому языку", italian: "итальянскому языку", turkish: "турецкому языку",
@@ -659,33 +672,53 @@ function TopicSelector({ label, options, selected, onAdd, onRemove, onCycle, rea
 
 /* --------------------------- attachment helpers ------------------------ */
 
-const MAX_ATTACHMENT_BYTES = 1.5 * 1024 * 1024;
+// Demo storage lives in the browser, so big videos go in as links (Яндекс Диск, YouTube, Rutube).
+const MAX_ATTACHMENT_BYTES = 4 * 1024 * 1024;
+const ATTACH_ACCEPT = "image/*,audio/*,video/*,application/pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt";
 
-function AttachFileButton({ onPicked, label }) {
+function AttachFileButton({ onPicked, label, multiple }) {
   const [busy, setBusy] = useState(false);
   async function handle(e) {
-    const file = e.target.files[0];
+    const files = [...e.target.files];
     e.target.value = "";
-    if (!file) return;
-    if (file.size > MAX_ATTACHMENT_BYTES) { alert("Файл слишком большой (максимум ~1.5 МБ для этого прототипа)."); return; }
+    if (!files.length) return;
+    const big = files.filter((f) => f.size > MAX_ATTACHMENT_BYTES);
+    if (big.length) alert("Больше 4 МБ: " + big.map((f) => f.name).join(", ") + ". Загрузите такой файл в Яндекс Диск или YouTube и вставьте ссылку.");
     setBusy(true);
-    try {
-      const dataUrl = await fileToDataURL(file);
-      onPicked({ name: file.name, type: file.type, dataUrl });
-    } catch (err) { console.error(err); }
+    for (const file of files.filter((f) => f.size <= MAX_ATTACHMENT_BYTES)) {
+      try { onPicked({ name: file.name, type: file.type, dataUrl: await fileToDataURL(file) }); } catch (err) { console.error(err); }
+    }
     setBusy(false);
   }
   return (
-    <label className="btn-small">
+    <label className="btn-small" title="Фото, документы, аудио, видео до 4 МБ">
       <Paperclip size={12} /> {busy ? "Загрузка…" : (label || "Прикрепить файл")}
-      <input type="file" onChange={handle} style={{ display: "none" }} />
+      <input type="file" accept={ATTACH_ACCEPT} multiple={!!multiple} onChange={handle} style={{ display: "none" }} />
     </label>
   );
 }
 
+const asList = (one, many) => [...(one ? [one] : []), ...(many || [])];
+function AttachmentList({ items, onRemove }) {
+  if (!items || !items.length) return null;
+  return <div className="attach-list">{items.map((a, i) => <AttachmentView key={i} attachment={a} onRemove={onRemove ? () => onRemove(i) : undefined} />)}</div>;
+}
+function MediaLink({ url }) {
+  if (!url) return null;
+  return <a className="attachment-file" href={url} target="_blank" rel="noreferrer">🎬 {/youtu|rutube|vk\.com\/video|vkvideo/.test(url) ? "Видео" : "Ссылка"}: {url.replace(/^https?:\/\//, "").slice(0, 48)}</a>;
+}
+
 function AttachmentView({ attachment, onRemove }) {
   if (!attachment) return null;
-  const isImage = (attachment.type || "").startsWith("image/");
+  const t = attachment.type || "";
+  const isImage = t.startsWith("image/");
+  if (t.startsWith("audio/") || t.startsWith("video/")) return (
+    <div className="attachment-chip media">
+      {t.startsWith("audio/") ? <audio controls src={attachment.dataUrl} style={{ maxWidth: 280 }} /> : <video controls src={attachment.dataUrl} style={{ maxWidth: 320, borderRadius: 10 }} />}
+      <span className="hint-text">{attachment.name}</span>
+      {onRemove && <button className="topic-remove" onClick={onRemove}><X size={12} /></button>}
+    </div>
+  );
   return (
     <div className="attachment-chip">
       {isImage ? (
@@ -752,7 +785,8 @@ function MaterialsList({ items, onAdd, onRemove, readOnly }) {
 function HomeworkPanel({ student, actions, role, canAct }) {
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ title: "", material: "", dueDate: isoDate(3) });
-  const [formAttachment, setFormAttachment] = useState(null);
+  const [formAttachments, setFormAttachments] = useState([]);
+  const [formLink, setFormLink] = useState("");
   const [drafts, setDrafts] = useState({});
   const [draftAttachments, setDraftAttachments] = useState({});
   const [feedbackDrafts, setFeedbackDrafts] = useState({});
@@ -775,9 +809,11 @@ function HomeworkPanel({ student, actions, role, canAct }) {
           </div>
           <input className="mini-input wide" placeholder="Название задания" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
           <textarea className="mini-textarea" placeholder="Материалы / инструкции / ссылка" value={form.material} onChange={(e) => setForm({ ...form, material: e.target.value })} />
-          <div className="row-gap">
-            <AttachFileButton label={formAttachment ? formAttachment.name : "Прикрепить файл"} onPicked={setFormAttachment} />
-            {formAttachment && <button className="btn-small" onClick={() => setFormAttachment(null)}>Убрать</button>}
+          <AttachmentList items={formAttachments} onRemove={(i) => setFormAttachments(formAttachments.filter((_, j) => j !== i))} />
+          <div className="row-gap" style={{ flexWrap: "wrap" }}>
+            <AttachFileButton multiple label="Файлы, фото, аудио, видео" onPicked={(a) => setFormAttachments((x) => [...x, a])} />
+            <VoiceRecordButton onRecorded={(a) => setFormAttachments((x) => [...x, a])} />
+            <input className="mini-input wide" placeholder="Ссылка на видео или файл (YouTube, Rutube, Яндекс Диск)" value={formLink} onChange={(e) => setFormLink(e.target.value)} />
           </div>
           <div className="row-gap">
             <span className="hint-text">Срок:</span>
@@ -786,7 +822,7 @@ function HomeworkPanel({ student, actions, role, canAct }) {
           <button
             className="btn-small accent"
             disabled={!form.title.trim()}
-            onClick={() => { actions.addHomework(student.id, { ...form, materialAttachment: formAttachment }); setForm({ title: "", material: "", dueDate: isoDate(3) }); setFormAttachment(null); setShowAdd(false); }}
+            onClick={() => { actions.addHomework(student.id, { ...form, materialAttachments: formAttachments, mediaLink: formLink.trim() }); setForm({ title: "", material: "", dueDate: isoDate(3) }); setFormAttachments([]); setFormLink(""); setShowAdd(false); }}
           >
             <Check size={12} /> Добавить задание
           </button>
@@ -804,7 +840,8 @@ function HomeworkPanel({ student, actions, role, canAct }) {
               </Pill>
             </div>
             {hw.material && <p className="body-text" style={{ marginTop: 4 }}>{hw.material}</p>}
-            {hw.materialAttachment && <AttachmentView attachment={hw.materialAttachment} />}
+            <AttachmentList items={asList(hw.materialAttachment, hw.materialAttachments)} />
+            <MediaLink url={hw.mediaLink} />
             {hw.dueDate && <div className="hint-text">Срок: {formatDate(hw.dueDate)}</div>}
 
             {role === "student" && (
@@ -820,12 +857,14 @@ function HomeworkPanel({ student, actions, role, canAct }) {
                       value={drafts[hw.id] ?? hw.submissionText ?? ""}
                       onChange={(e) => setDrafts({ ...drafts, [hw.id]: e.target.value })}
                     />
-                    <div className="row-gap" style={{ marginTop: 6 }}>
-                      <AttachFileButton label={draftAttachments[hw.id]?.name || (hw.submissionAttachment?.name) || "Прикрепить файл"} onPicked={(a) => setDraftAttachments({ ...draftAttachments, [hw.id]: a })} />
+                    <AttachmentList items={draftAttachments[hw.id] || []} onRemove={(i) => setDraftAttachments({ ...draftAttachments, [hw.id]: (draftAttachments[hw.id] || []).filter((_, j) => j !== i) })} />
+                    <div className="row-gap" style={{ marginTop: 6, flexWrap: "wrap" }}>
+                      <AttachFileButton multiple label="Файлы, фото, аудио, видео" onPicked={(a) => setDraftAttachments((d) => ({ ...d, [hw.id]: [...(d[hw.id] || []), a] }))} />
+                      <VoiceRecordButton onRecorded={(a) => setDraftAttachments((d) => ({ ...d, [hw.id]: [...(d[hw.id] || []), a] }))} />
                       <button
                         className="btn-small accent"
-                        disabled={!(drafts[hw.id] ?? hw.submissionText ?? "").trim() && !draftAttachments[hw.id]}
-                        onClick={() => actions.submitHomework(student.id, hw.id, drafts[hw.id] ?? hw.submissionText ?? "", draftAttachments[hw.id] || hw.submissionAttachment || null)}
+                        disabled={!(drafts[hw.id] ?? hw.submissionText ?? "").trim() && !(draftAttachments[hw.id] || []).length}
+                        onClick={() => { actions.submitHomework(student.id, hw.id, drafts[hw.id] ?? hw.submissionText ?? "", draftAttachments[hw.id] || []); setDraftAttachments((d) => ({ ...d, [hw.id]: [] })); }}
                       >
                         <Send size={12} /> {hw.status === "needs_revision" ? "Отправить исправленный вариант" : "Отправить ответ"}
                       </button>
@@ -835,7 +874,7 @@ function HomeworkPanel({ student, actions, role, canAct }) {
                   <div className="hw-submission">
                     <div className="hint-text">Ваш ответ ({formatDateTime(hw.submittedAt)}):</div>
                     <p className="body-text">{hw.submissionText}</p>
-                    {hw.submissionAttachment && <AttachmentView attachment={hw.submissionAttachment} />}
+                    <AttachmentList items={asList(hw.submissionAttachment, hw.submissionAttachments)} />
                     {hw.status === "reviewed" && hw.feedback && <div className="hw-feedback"><strong>Комментарий учителя:</strong> {hw.feedback}</div>}
                   </div>
                 )}
@@ -844,11 +883,11 @@ function HomeworkPanel({ student, actions, role, canAct }) {
 
             {role === "teacher" && (
               <div style={{ marginTop: 8 }}>
-                {(hw.submissionText || hw.submissionAttachment) ? (
+                {(hw.submissionText || hw.submissionAttachment || (hw.submissionAttachments || []).length) ? (
                   <div className="hw-submission">
                     <div className="hint-text">Ответ ученика ({formatDateTime(hw.submittedAt)}):</div>
                     <p className="body-text">{hw.submissionText}</p>
-                    {hw.submissionAttachment && <AttachmentView attachment={hw.submissionAttachment} />}
+                    <AttachmentList items={asList(hw.submissionAttachment, hw.submissionAttachments)} />
 
                     {canAct && hw.status === "submitted" && (
                       <button className="btn-small" style={{ marginTop: 6 }} onClick={() => actions.markHomeworkInReview(student.id, hw.id)}>Взять на проверку</button>
@@ -897,7 +936,7 @@ function HomeworkPanel({ student, actions, role, canAct }) {
                       <button key={st} className={"btn-small" + (hw.status === st ? " accent" : "")} disabled={st === "needs_revision" && !(feedbackDrafts[hw.id] || hw.feedback || "").trim()} title={st === "needs_revision" ? "Напишите замечания в поле комментария" : ""}
                         onClick={() => actions.setHomeworkStatus(student.id, hw.id, st, feedbackDrafts[hw.id])}>{lbl}</button>
                     ))}
-                    {!(hw.submissionText || hw.submissionAttachment) && (
+                    {!(hw.submissionText || hw.submissionAttachment || (hw.submissionAttachments || []).length) && (
                       <input className="mini-input wide" placeholder="Комментарий ученику (нужен для «На доработку»)" value={feedbackDrafts[hw.id] ?? ""} onChange={(e) => setFeedbackDrafts({ ...feedbackDrafts, [hw.id]: e.target.value })} />
                     )}
                     <button className="btn-icon ghost" title="Удалить задание" onClick={() => { if (window.confirm("Удалить задание «" + hw.title + "»?")) actions.removeHomework(student.id, hw.id); }}><Trash2 size={13} /></button>
@@ -1283,7 +1322,7 @@ function SlotRow({ slot, students, readOnly, onAssign, onCancel, onReschedule, o
           {slot.status === "booked" && !editing && !editingDetails && (
             <>
               <button className="btn-small" onClick={() => setEditing(true)}><Pencil size={12} /> Перенести</button>
-              {onEditDetails && <button className="btn-small" onClick={() => { setDetailsDraft({ duration: slot.duration, type: slot.type, trialName: slot.trialName || "" }); setEditingDetails(true); }}><Pencil size={12} /> Изменить детали</button>}
+              {onEditDetails && <button className="btn-small" onClick={() => { setDetailsDraft({ duration: slot.duration, type: slot.type, trialName: slot.trialName || "", format: slotKind(slot, students), isCheck: !!slot.isCheck }); setEditingDetails(true); }}><Pencil size={12} /> Изменить детали</button>}
               <button className="btn-icon danger" onClick={() => onCancel(slot.id)} title="Отменить"><Trash2 size={14} /></button>
             </>
           )}
@@ -1294,8 +1333,12 @@ function SlotRow({ slot, students, readOnly, onAssign, onCancel, onReschedule, o
                 <select className="mini-select" value={detailsDraft.duration} onChange={(e) => setDetailsDraft({ ...detailsDraft, duration: Number(e.target.value) })}>
                   <option value={30}>30 мин</option><option value={45}>45 мин</option><option value={60}>60 мин</option><option value={90}>90 мин</option>
                 </select>
-                <select className="mini-select" value={detailsDraft.type} onChange={(e) => setDetailsDraft({ ...detailsDraft, type: e.target.value })}>
+                <select className="mini-select" value={detailsDraft.type} onChange={(e) => setDetailsDraft({ ...detailsDraft, type: e.target.value, format: e.target.value === "trial" ? "trial" : detailsDraft.format === "trial" ? "individual" : detailsDraft.format })}>
                   <option value="trial">Пробный урок</option><option value="regular">Обычный урок</option>
+                </select>
+                <label className="hint-text" style={{ display: "inline-flex", gap: 4, alignItems: "center" }}><input type="checkbox" checked={!!detailsDraft.isCheck} onChange={(e) => setDetailsDraft({ ...detailsDraft, isCheck: e.target.checked })} /> 📝 Контрольный срез</label>
+                <select className="mini-select" title="Формат урока: от него зависит ставка преподавателя" value={detailsDraft.format || "individual"} onChange={(e) => setDetailsDraft({ ...detailsDraft, format: e.target.value })}>
+                  {Object.entries(LESSON_KINDS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
                 </select>
               </div>
               {!slot.studentId && (
@@ -1596,7 +1639,7 @@ function ScheduleTable({ slots, students, teacherId, teacherOptions, teachersByI
                           onClick={(e) => { e.stopPropagation(); setAddingCell(null); setSelectedSlotId(sl.id); }}
                         >
                           <span className="chip-time">{sl.time}</span>
-                          <span className="chip-info">{t ? t.name.split(" ")[0] + " · " : ""}{who}</span>
+                          <span className="chip-info"><span className="slot-kind" title={LESSON_KINDS[slotKind(sl, students)]}>{LESSON_KINDS[slotKind(sl, students)].split(" ")[0]}{sl.isCheck ? "📝" : ""}</span>{t ? t.name.split(" ")[0] + " · " : ""}{who}</span>
                         </button>
                       );
                     })}
@@ -1730,6 +1773,7 @@ function PackageTracker({ student, actions, canEdit, products, slots, subject })
     setExpanded(false);
   }
 
+  if (student.umbrellaId) return <div className="hint-text">🌂 Занятия списываются с комплексного пакета «Под одним зонтом».</div>;
   if (!canEdit && !student.packageTotal) return null;
 
   const isIndividual = !student.packageTotal;
@@ -1778,23 +1822,27 @@ function PackageTracker({ student, actions, canEdit, products, slots, subject })
 
 function CheckpointsPanel({ student, actions, canEdit }) {
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ title: "", maxScore: "", achievedScore: "", note: "" });
-  const items = student.checkpoints || [];
+  const [form, setForm] = useState({ title: "", maxScore: "", achievedScore: "", note: "", kind: "check", date: isoDate(0) });
+  const items = [...(student.checkpoints || [])].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
 
   return (
     <div>
       <div className="row-gap" style={{ justifyContent: "space-between" }}>
-        <div className="field-label" style={{ margin: 0 }}>Проверка пройденного</div>
+        <div className="field-label" style={{ margin: 0 }}>Контрольные срезы и пробники</div>
         {canEdit && <button className="btn-icon" onClick={() => setShowAdd((v) => !v)}><Plus size={13} /></button>}
       </div>
 
       {showAdd && canEdit && (
         <div className="add-panel">
           <div className="row-gap" style={{ justifyContent: "space-between" }}>
-            <span className="hint-text">Новая проверка / тест</span>
+            <span className="hint-text">Новый срез / тест</span>
             <button className="btn-icon" onClick={() => setShowAdd(false)}><X size={14} /></button>
           </div>
-          <input className="mini-input wide" placeholder="Название (напр. IELTS Mock Test)" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+          <div className="row-gap" style={{ flexWrap: "wrap" }}>
+            {Object.entries(CHECK_KINDS).map(([k, l]) => <button key={k} className={"btn-small" + (form.kind === k ? " accent" : "")} onClick={() => setForm({ ...form, kind: k })}>{l}</button>)}
+            <input type="date" className="mini-input" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+          </div>
+          <input className="mini-input wide" placeholder="Название (напр. «Срез по теме Право» или «IELTS Mock Test»)" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
           <div className="row-gap">
             <input type="number" className="mini-input" style={{ width: 80 }} placeholder="Из скольки" value={form.maxScore} onChange={(e) => setForm({ ...form, maxScore: e.target.value })} />
             <span className="hint-text">из</span>
@@ -1804,7 +1852,7 @@ function CheckpointsPanel({ student, actions, canEdit }) {
           <button
             className="btn-small accent"
             disabled={!form.title.trim() || !form.maxScore || form.achievedScore === ""}
-            onClick={() => { actions.addCheckpoint(student.id, form); setForm({ title: "", maxScore: "", achievedScore: "", note: "" }); setShowAdd(false); }}
+            onClick={() => { actions.addCheckpoint(student.id, form); setForm({ title: "", maxScore: "", achievedScore: "", note: "", kind: "check", date: isoDate(0) }); setShowAdd(false); }}
           ><Check size={12} /> Добавить результат</button>
         </div>
       )}
@@ -1816,7 +1864,7 @@ function CheckpointsPanel({ student, actions, canEdit }) {
           return (
             <div key={c.id} className="checkpoint-item">
               <div className="row-gap" style={{ justifyContent: "space-between" }}>
-                <strong>{c.title}</strong>
+                <strong>{c.kind && CHECK_KINDS[c.kind] && <span className="ck-kind">{CHECK_KINDS[c.kind]}</span>}{c.title}</strong>
                 {canEdit && <button className="topic-remove" onClick={() => actions.removeCheckpoint(student.id, c.id)}><X size={12} /></button>}
               </div>
               <div className="row-gap">
@@ -1870,7 +1918,9 @@ function TeacherChangeRequestAdmin({ student, teachers, actions }) {
 const STICKER_CHOICES = ["⭐", "🏆", "🔥", "🎯", "📚", "🎓", "💪", "🌟", "✅", "❤️"];
 const BANNER_COLORS = ["", "#F3E6C6", "#E8E1F2", "#DCEEF5", "#F5DCDC", "#DCEDEC", "#F3E1D6"];
 
-function PageCustomizer({ theme, onUpdate }) {
+const ACCENT_CHOICES = ["", "#2F6F73", "#B8303C", "#5B7FB5", "#C9922E", "#3F8F5E", "#7A5BA6", "#1E2B2F"];
+
+function PageCustomizer({ theme, onUpdate, photo, onPhoto }) {
   const t = theme || { bannerColor: "", bannerImage: "", bannerEmoji: "", stickers: [] };
   const [busy, setBusy] = useState(false);
 
@@ -1896,7 +1946,23 @@ function PageCustomizer({ theme, onUpdate }) {
   return (
     <div>
       <div className="field-label">Оформление страницы</div>
-      <div className="hint-text" style={{ marginBottom: 6 }}>Баннер (цвет, картинка), эмодзи и наклейки</div>
+      <div className="hint-text" style={{ marginBottom: 6 }}>Фото, цвет страницы, баннер, эмодзи и наклейки. Видно вам и вашим преподавателям или ученикам.</div>
+      {onPhoto && (
+        <div className="row-gap" style={{ marginBottom: 8 }}>
+          <Avatar name="" photo={photo} size={40} />
+          <label className="btn-small"><Paperclip size={11} /> {photo ? "Сменить фото" : "Загрузить фото профиля"}
+            <input type="file" accept="image/*" style={{ display: "none" }} onChange={async (e) => { const f = e.target.files[0]; e.target.value = ""; if (!f) return; if (f.size > MAX_ATTACHMENT_BYTES) { alert("Фото больше 4 МБ."); return; } onPhoto(await fileToDataURL(f)); }} />
+          </label>
+          {photo && <button className="btn-small" onClick={() => onPhoto("")}>Убрать фото</button>}
+        </div>
+      )}
+      <div className="hint-text" style={{ marginBottom: 4 }}>Цвет страницы:</div>
+      <div className="row-gap" style={{ marginBottom: 8 }}>
+        {ACCENT_CHOICES.map((c, i) => (
+          <button key={i} className={"color-swatch" + ((t.accentColor || "") === c ? " selected" : "")} style={{ background: c || "repeating-linear-gradient(45deg, #ddd, #ddd 4px, #fff 4px, #fff 8px)" }} onClick={() => onUpdate({ ...t, accentColor: c })} title={c ? "Цвет " + c : "как у предмета"} />
+        ))}
+      </div>
+      <div className="hint-text" style={{ marginBottom: 4 }}>Баннер:</div>
 
       <div className="row-gap" style={{ marginBottom: 8 }}>
         {BANNER_COLORS.map((c, i) => (
@@ -2104,7 +2170,7 @@ function TeacherView({ teacher, teachers, students, schedule, actions, perm, pro
   const vocabOptions = VOCAB_BANK[teacher.subject] || [];
 
   return (
-    <div className={"subj-" + teacher.subject}>
+    <div className={"subj-" + teacher.subject} style={teacher.pageTheme?.accentColor ? { "--accent": teacher.pageTheme.accentColor } : undefined}>
       <div className="card teacher-profile-header">
         <PageBanner theme={teacher.pageTheme} />
         {editingOwnProfile ? (
@@ -2122,7 +2188,7 @@ function TeacherView({ teacher, teachers, students, schedule, actions, perm, pro
                 <h2 style={{ margin: 0 }}>{teacher.name}</h2>
                 {perm.profile && (
                   <div className="row-gap">
-                    <button className="btn-icon" onClick={() => setCustomizingOwnPage((v) => !v)} title="Оформление страницы">🎨</button>
+                    <button className="btn-small" onClick={() => setCustomizingOwnPage((v) => !v)} title="Оформление страницы">🎨 Оформить страницу</button>
                     <button className="btn-icon" onClick={() => setEditingOwnProfile(true)} title="Редактировать профиль"><Pencil size={13} /></button>
                   </div>
                 )}
@@ -2150,7 +2216,7 @@ function TeacherView({ teacher, teachers, students, schedule, actions, perm, pro
         )}
         {perm.profile && customizingOwnPage && !editingOwnProfile && (
           <div className="add-panel" style={{ marginTop: 10 }}>
-            <PageCustomizer theme={teacher.pageTheme} onUpdate={(t) => actions.updateTeacher(teacher.id, { pageTheme: t })} />
+            <PageCustomizer theme={teacher.pageTheme} onUpdate={(t) => actions.updateTeacher(teacher.id, { pageTheme: t })} photo={teacher.photo} onPhoto={(ph) => actions.updateTeacher(teacher.id, { photo: ph })} />
           </div>
         )}
       </div>
@@ -2159,7 +2225,6 @@ function TeacherView({ teacher, teachers, students, schedule, actions, perm, pro
         <button className={tab === "students" ? "tab active" : "tab"} onClick={() => setTab("students")}><Users size={13} /> Ученики</button>
         <button className={tab === "materials" ? "tab active" : "tab"} onClick={() => setTab("materials")}><BookOpen size={13} /> Материалы</button>
         <button className={tab === "schedule" ? "tab active" : "tab"} onClick={() => setTab("schedule")}><Calendar size={13} /> Расписание</button>
-        <button className={tab === "groups" ? "tab active" : "tab"} onClick={() => setTab("groups")}><Users size={13} /> Пары и группы</button>
         <button className={tab === "staff" ? "tab active" : "tab"} onClick={() => setTab("staff")}><Building2 size={13} /> Администрация</button>
       </div>
 
@@ -2212,10 +2277,10 @@ function TeacherView({ teacher, teachers, students, schedule, actions, perm, pro
                   <div className="student-item-clickable" onClick={() => setSelectedId(s.id)}>
                     <div className="student-item-top">
                       <span className="student-item-name">{s.name}</span>
-                      <FormatBadge student={s} />
                       <ChevronRight size={14} />
                     </div>
                     <div className="student-item-meta">
+                      <FormatBadge student={s} />
                       <Pill tone={s.status === "active" ? "accent" : s.status === "trial" ? "gold" : "default"}>{STATUS_LABELS[s.status]}</Pill>
                       {s.examTarget?.exam && <Pill tone="gold">🎯 {s.examTarget.exam}</Pill>}
                       <span className="muted-text">{s.currentLevel}</span>
@@ -2223,7 +2288,7 @@ function TeacherView({ teacher, teachers, students, schedule, actions, perm, pro
                   </div>
                   {perm.profile && (
                     deleteStudentArmedId === s.id ? (
-                      <button className="btn-icon danger student-delete-btn" onClick={() => { actions.deleteStudent(s.id); setDeleteStudentArmedId(null); if (selectedId === s.id) setSelectedId(null); }} title="Подтвердить удаление"><Check size={12} /></button>
+                      <button className="btn-icon danger student-delete-btn armed" onClick={() => { actions.deleteStudent(s.id); setDeleteStudentArmedId(null); if (selectedId === s.id) setSelectedId(null); }} title="Подтвердить удаление"><Check size={12} /></button>
                     ) : (
                       <button className="btn-icon danger student-delete-btn" onClick={() => setDeleteStudentArmedId(s.id)} title="Удалить ученика"><Trash2 size={12} /></button>
                     )
@@ -2254,20 +2319,24 @@ function TeacherView({ teacher, teachers, students, schedule, actions, perm, pro
                     )}
                   </div>
 
-                  {perm.profile ? (
-                    <select className="mini-select" value={selected.planType || "individual"} onChange={(e) => actions.updateStudent(selected.id, { planType: e.target.value })}>
-                      {Object.keys(PLAN_LABELS).map((k) => <option key={k} value={k}>{PLAN_LABELS[k]}</option>)}
-                    </select>
-                  ) : (
-                    <Pill tone={selected.planType === "package" ? "teal" : "default"}>{PLAN_LABELS[selected.planType || "individual"]}</Pill>
-                  )}
+                  <FormatPanel student={selected} students={students} teachers={teachers} groups={ext.groups} umbrellas={ext.umbrellas} slots={schedule} subjectMeta={SUBJECTS} canEdit={perm.profile || perm.package} canManage={!!ext.onOpenAdminTab} onOpenAdminTab={ext.onOpenAdminTab} actions={actions} />
+                  {selected.format === "self" && <SelfMonthPanel student={selected} slots={mySlots} canEdit={perm.profile || perm.schedule} actions={actions} />}
 
                   <div style={{ marginTop: 10 }}>
                     <PackageTracker student={selected} actions={actions} canEdit={perm.package} products={products} slots={mySlots} subject={teacher.subject} />
                   </div>
 
+
                   <div className="field-block">
-                    <FormatPanel student={selected} students={students} teachers={teachers} groups={ext.groups} slots={schedule} subjectMeta={SUBJECTS} canEdit={perm.profile} actions={actions} onOpenGroups={() => setTab("groups")} />
+                    <div className="field-label">Желаемый результат</div>
+                    <div className="row-gap" style={{ flexWrap: "wrap" }}>
+                      <span className="hint-text">Уровень-цель:</span>
+                      <select className="mini-select" disabled={!perm.profile} value={selected.targetLevel || ""} onChange={(e) => actions.updateStudent(selected.id, { targetLevel: e.target.value })}>
+                        <option value="">не задан</option>
+                        {subjMeta.levels.map((l) => <option key={l} value={l}>{l}</option>)}
+                      </select>
+                    </div>
+                    <textarea className="mini-textarea" style={{ marginTop: 6 }} readOnly={!perm.profile} placeholder="Чего хотим добиться: например «свободно говорить на работе» или «ЕГЭ на 85+»" value={selected.targetResult || ""} onChange={(e) => actions.updateStudent(selected.id, { targetResult: e.target.value })} />
                   </div>
 
                   <div className="field-block">
@@ -2367,11 +2436,6 @@ function TeacherView({ teacher, teachers, students, schedule, actions, perm, pro
         </div>
       )}
 
-      {tab === "groups" && (
-        <div className="card">
-          <GroupsPanel groups={ext.groups} students={students} teachers={teachers} subjectMeta={SUBJECTS} teacherIds={[teacher.id]} canPickTeacher={false} actions={actions} />
-        </div>
-      )}
       {tab === "materials" && (
         <div className="card">
           <LibraryPanel items={ext.library} subjects={[teacher.subject]} subjectMeta={SUBJECTS} canEdit={() => true} author={teacher.name} onAdd={actions.addLibraryItem} onUpdate={actions.updateLibraryItem} onRemove={actions.removeLibraryItem} title={"Общая библиотека: " + SUBJECTS[teacher.subject].label} hint="Видна всем ученикам предмета. Добавляют и правят преподаватели предмета и администратор, ученики только смотрят." />
@@ -2437,14 +2501,15 @@ function TeacherView({ teacher, teachers, students, schedule, actions, perm, pro
 function StudentView({ student, teacher, schedule, actions, products, ext }) {
   const subjMeta = SUBJECTS[teacher.subject];
   const [tab, setTab] = useState("card");
+  const [styling, setStyling] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   // Lessons covered by the package count as paid: the link opens for them.
   const mySlots = withPackagePaid(student, schedule.filter((sl) => sl.studentId === student.id));
-  const ctx = { students: ext.students, teachers: ext.teachers, groups: ext.groups, allSlots: schedule, subjectMeta: SUBJECTS };
+  const ctx = { students: ext.students, teachers: ext.teachers, groups: ext.groups, umbrellas: ext.umbrellas, allSlots: schedule, subjectMeta: SUBJECTS };
   const T = (key, icon, label) => <button className={tab === key ? "tab active" : "tab"} onClick={() => setTab(key)}>{icon} {label}</button>;
 
   return (
-    <div className={"subj-" + teacher.subject}>
+    <div className={"subj-" + teacher.subject} style={student.pageTheme?.accentColor ? { "--accent": student.pageTheme.accentColor } : undefined}>
       <div className="tabs">
         {T("card", <GraduationCap size={13} />, "Моя карточка")}
         {T("progress", <ListChecksIcon />, "Прогресс")}
@@ -2456,7 +2521,7 @@ function StudentView({ student, teacher, schedule, actions, products, ext }) {
       </div>
 
       {payOpen && (
-        <PayRequestModal student={student} products={products} subject={teacher.subject} onClose={() => setPayOpen(false)} onSubmit={(d) => { actions.requestPayment(student.id, teacher.id, d); setPayOpen(false); }} />
+        <PayRequestModal student={student} products={umbrellaOf(ext.umbrellas, student) ? [8, 12].map((n) => ({ id: "um" + n, subject: teacher.subject, lessonsIncluded: n, price: UMBRELLA_PRICES[n] })) : products} subject={teacher.subject} onClose={() => setPayOpen(false)} onSubmit={(d) => { actions.requestPayment(student.id, teacher.id, d); setPayOpen(false); }} />
       )}
 
       {tab === "card" && <>
@@ -2470,8 +2535,15 @@ function StudentView({ student, teacher, schedule, actions, products, ext }) {
             <div className="row-gap">
               <Pill tone={student.status === "active" ? "accent" : "gold"}>{STATUS_LABELS[student.status]}</Pill>
               <FormatBadge student={student} />
+              <button className="btn-small" onClick={() => setStyling((v) => !v)}>🎨 Оформить страницу</button>
             </div>
           </div>
+          {styling && (
+            <div className="field-block">
+              <PageCustomizer theme={student.pageTheme} onUpdate={(t) => actions.updatePageTheme(student.id, t)} photo={student.photo} onPhoto={(ph) => actions.updateStudent(student.id, { photo: ph })} />
+              <button className="btn-small accent" style={{ marginTop: 8 }} onClick={() => setStyling(false)}><Check size={12} /> Готово</button>
+            </div>
+          )}
           <div className="field-block">
             <div className="field-label">Ваш преподаватель</div>
             <div className="teacher-mini-card">
@@ -2493,13 +2565,16 @@ function StudentView({ student, teacher, schedule, actions, products, ext }) {
           </div>
         </div>
         <StudentOverview student={student} teacher={teacher} subjMeta={subjMeta} slots={mySlots} payRequests={ext.payRequests} onPay={() => setPayOpen(true)} onPayAction={actions.payRequestAction} ctx={ctx} showProgram={false} />
+        {student.format === "self" && <SelfMonthPanel student={student} slots={mySlots} canEdit={false} actions={actions} />}
         {student.canRequestTeacherChange && (
           <div className="card"><ChangeTeacherRequest student={student} actions={actions} /></div>
         )}
       </>}
 
       {tab === "progress" && <>
+        <GoalMarker student={student} levels={subjMeta.levels} />
         <ProgressCharts student={student} subjMeta={{ ...subjMeta, bank: GRAMMAR_BANK[teacher.subject] || {} }} slots={mySlots} />
+        {student.format === "self" && <SelfMonthPanel student={student} slots={mySlots} canEdit={false} actions={actions} />}
         <div className="card">
           <div className="field-block">
             <ProgramEditor label={subjMeta.grammarLabel + " по уровням"} topics={student.grammarTopics} levels={subjMeta.levels} bank={GRAMMAR_BANK[teacher.subject] || {}} startLevel={student.startLevel} currentLevel={student.currentLevel} canEdit={false} />
@@ -2555,7 +2630,7 @@ function StudentView({ student, teacher, schedule, actions, products, ext }) {
             onSend={(text, att) => actions.sendSupportMessage(student.id, "student", text, att)}
             onToggleReaction={(id, emoji) => actions.toggleSupportReaction(student.id, id, "student", emoji)}
             role="student" canAct={true}
-            selfName={student.name} selfPhoto=""
+            selfName={student.name} selfPhoto={student.photo || ""}
             otherName="Администрация" otherPhoto=""
             placeholder="Написать администрации…"
           />
@@ -2667,7 +2742,7 @@ function AdminView({ department, teachers, students, schedule, sales, products, 
     return (
       <div>
         <button className="btn-small" onClick={() => setDetailTeacherId(null)} style={{ marginBottom: 12 }}>← Ко всем учителям</button>
-        <TeacherView teacher={detailTeacher} teachers={teachers} students={students} schedule={schedule} actions={actions} products={products} perm={{ profile: false, schedule: true, package: true }} ext={ext} />
+        <TeacherView teacher={detailTeacher} teachers={teachers} students={students} schedule={schedule} actions={actions} products={products} perm={{ profile: false, schedule: true, package: true }} ext={{ ...ext, onOpenAdminTab: (t) => { setDetailTeacherId(null); setTab(t); } }} />
       </div>
     );
   }
@@ -2691,6 +2766,7 @@ function AdminView({ department, teachers, students, schedule, sales, products, 
         <button className={tab === "schedule" ? "tab active" : "tab"} onClick={() => setTab("schedule")}><Calendar size={13} /> Общее расписание</button>
         <button className={tab === "roster" ? "tab active" : "tab"} onClick={() => setTab("roster")}><GraduationCap size={13} /> Ученики школы</button>
         <button className={tab === "groups" ? "tab active" : "tab"} onClick={() => setTab("groups")}><Users size={13} /> Пары и группы</button>
+        <button className={tab === "umbrella" ? "tab active" : "tab"} onClick={() => setTab("umbrella")}>🌂 Под одним зонтом</button>
         <button className={tab === "library" ? "tab active" : "tab"} onClick={() => setTab("library")}><BookOpen size={13} /> Материалы</button>
         <button className={tab === "sales" ? "tab active" : "tab"} onClick={() => setTab("sales")}><ShoppingBag size={13} /> Магазин</button>
         <button className={tab === "messages" ? "tab active" : "tab"} onClick={() => setTab("messages")}>
@@ -2698,6 +2774,11 @@ function AdminView({ department, teachers, students, schedule, sales, products, 
         </button>
       </div>
 
+      {tab === "umbrella" && (
+        <div className="card">
+          <UmbrellaPanel umbrellas={ext.umbrellas} students={students} teachers={teachers} slots={schedule} subjectMeta={SUBJECTS} actions={actions} />
+        </div>
+      )}
       {tab === "groups" && (
         <div className="card">
           <GroupsPanel groups={ext.groups} students={students} teachers={teachers} subjectMeta={SUBJECTS} teacherIds={deptTeachers.map((t) => t.id)} canPickTeacher={true} actions={actions} />
@@ -2800,6 +2881,7 @@ function AdminView({ department, teachers, students, schedule, sales, products, 
                               <span><Users size={13} /> {active} активных · {myStudents.length} всего</span>
                               <span><Calendar size={13} /> {upcomingCount} предстоящих занятий</span>
                             </div>
+                            <PayrollCard teacher={t} slots={schedule} students={students} onSetRate={actions.setTeacherRate} />
                             {myStudents.length > 0 && deleteArmedId === t.id && (
                               <div className="hint-text" style={{ color: "var(--danger)" }}>Нельзя удалить: есть ученики. Сначала переведите их к другому учителю.</div>
                             )}
@@ -2936,7 +3018,7 @@ function AdminView({ department, teachers, students, schedule, sales, products, 
                                 <span className="hint-text">Редактирование ученика — {s.name}</span>
                                 <button className="btn-icon" onClick={() => setEditingStudentId(null)}><X size={14} /></button>
                               </div>
-                              <FormatPanel student={s} students={students} teachers={teachers} groups={ext.groups} slots={schedule} subjectMeta={SUBJECTS} canEdit={true} actions={actions} onOpenGroups={() => setTab("groups")} />
+                              <FormatPanel student={s} students={students} teachers={teachers} groups={ext.groups} umbrellas={ext.umbrellas} slots={schedule} subjectMeta={SUBJECTS} canEdit={true} canManage={true} onOpenAdminTab={setTab} actions={actions} />
                               <input className="mini-input wide" placeholder="Имя" value={studentEditForm.name} onChange={(e) => setStudentEditForm({ ...studentEditForm, name: e.target.value })} />
                               <input className="mini-input wide" placeholder="Контакт" value={studentEditForm.contact} onChange={(e) => setStudentEditForm({ ...studentEditForm, contact: e.target.value })} />
                               <textarea className="mini-textarea" placeholder="Изначальная цель" value={studentEditForm.goal} onChange={(e) => setStudentEditForm({ ...studentEditForm, goal: e.target.value })} />
@@ -2981,7 +3063,7 @@ function AdminView({ department, teachers, students, schedule, sales, products, 
         </div>
       )}
 
-      {tab === "sales" && <ShopPanel sales={sales} products={products} discountPercent={discountPercent} actions={actions} expenses={expenses} teachers={deptTeachers} students={students.filter((s) => deptTeachers.some((t) => t.id === s.teacherId))} />}
+      {tab === "sales" && <ShopPanel sales={sales} products={products} discountPercent={discountPercent} actions={actions} expenses={expenses} teachers={deptTeachers} students={students.filter((s) => deptTeachers.some((t) => t.id === s.teacherId))} schedule={schedule} allStudents={students} />}
 
       {tab === "messages" && (
         <div>
@@ -3074,7 +3156,7 @@ function fmtMoney(n) { return Math.round(n).toLocaleString("ru-RU") + " ₽"; }
 
 const MONTH_NAMES = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
 
-function ShopPanel({ sales, products, discountPercent, actions, students, expenses, teachers }) {
+function ShopPanel({ sales, products, discountPercent, actions, students, expenses, teachers, schedule, allStudents }) {
   const now = new Date();
   const [viewYear, setViewYear] = useState(now.getFullYear());
   const [viewMonth, setViewMonth] = useState(now.getMonth());
@@ -3098,7 +3180,8 @@ function ShopPanel({ sales, products, discountPercent, actions, students, expens
   const monthSales = sales.filter((s) => s.date.startsWith(monthPrefix));
   const monthExpenses = (expenses || []).filter((e) => e.date.startsWith(monthPrefix));
   const monthTotal = monthSales.reduce((a, s) => a + s.amount, 0);
-  const monthPayouts = monthExpenses.filter((e) => e.auto).reduce((a, e) => a + e.amount, 0);
+  const lessonPayroll = (teachers || []).reduce((a, t) => a + teacherPayroll(t, schedule, allStudents || students, monthPrefix).total, 0);
+  const monthPayouts = monthExpenses.filter((e) => e.auto).reduce((a, e) => a + e.amount, 0) + lessonPayroll;
   const monthOtherExpenses = monthExpenses.filter((e) => !e.auto).reduce((a, e) => a + e.amount, 0);
   const monthExpenseTotal = monthPayouts + monthOtherExpenses;
   const monthProfit = monthTotal - monthExpenseTotal;
@@ -3174,7 +3257,7 @@ function ShopPanel({ sales, products, discountPercent, actions, students, expens
         <div className="field-label">Финансы за {MONTH_NAMES[viewMonth]}</div>
         <div className="finance-grid">
           <div className="finance-cell"><div className="hint-text">Выручка</div><div className="finance-value">{fmtMoney(monthTotal)}</div></div>
-          <div className="finance-cell"><div className="hint-text">Зарплата учителям</div><div className="finance-value">− {fmtMoney(monthPayouts)}</div></div>
+          <div className="finance-cell"><div className="hint-text" title="Ставки за проведённые уроки по форматам (карточки учителей) + выплаты с продаж">Зарплата учителям (по урокам)</div><div className="finance-value">− {fmtMoney(monthPayouts)}</div></div>
           <div className="finance-cell"><div className="hint-text">Прочие траты школы</div><div className="finance-value">− {fmtMoney(monthOtherExpenses)}</div></div>
           <div className="finance-cell finance-profit"><div className="hint-text">Чистая прибыль</div><div className="finance-value">{fmtMoney(monthProfit)}</div></div>
           <div className="finance-cell finance-margin"><div className="hint-text">Рентабельность</div><div className="finance-value">{monthMargin === null ? "—" : monthMargin + "%"}</div></div>
@@ -3353,6 +3436,7 @@ export default function App({ session, onLogout }) {
   const [calls, setCalls] = useState([]);
   const [payRequests, setPayRequests] = useState([]);
   const [groups, setGroups] = useState([]);
+  const [umbrellas, setUmbrellas] = useState([]);
 
   const persist = useCallback(async (key, value) => {
     try {
@@ -3378,6 +3462,8 @@ export default function App({ session, onLogout }) {
       const payRes = await loadStrict("su-payreq-v1");
       const grpRes = await loadStrict("su-groups-v1");
       setGroups(grpRes.value || []);
+      const umRes = await loadStrict("su-umbrella-v1");
+      setUmbrellas(umRes.value || seedUmbrellas);
       setLibrary(libRes.value || seedLibrary);
       setCalls(callRes.value || []);
       setPayRequests(payRes.value || []);
@@ -3385,7 +3471,10 @@ export default function App({ session, onLogout }) {
 
       const t = (tRes.value || seedTeachers).map(normalizeTeacher);
       const s = (sRes.value || seedStudents).map(normalizeStudent);
-      const sch = (schRes.value || seedSchedule).map(normalizeSlot);
+      // Every lesson keeps the format it was given in; old ones get it from the student once.
+      const sch0 = (schRes.value || seedSchedule).map(normalizeSlot);
+      const schNeedsFormat = sch0.some((sl) => !sl.format && (sl.studentId || sl.trialName));
+      const sch = sch0.map((sl) => (sl.format || !(sl.studentId || sl.trialName) ? sl : { ...sl, format: slotKind(sl, s) }));
       const sal = salRes.value || seedSales;
       const prod = (prodRes.value || seedProducts).map(normalizeProduct);
       const disc = discRes.value !== null ? discRes.value : seedDiscountPercent;
@@ -3406,7 +3495,7 @@ export default function App({ session, onLogout }) {
       // recovered from an older key, so it's found directly next time.
       if (tRes.needsSave) persist("su-teachers-v3", t);
       if (sRes.needsSave) persist("su-students-v3", s);
-      if (schRes.needsSave) persist("su-schedule-v3", sch);
+      if (schRes.needsSave || schNeedsFormat) persist("su-schedule-v3", sch);
       if (salRes.needsSave) persist("su-sales-v3", sal);
       if (prodRes.needsSave) persist("su-products-v2", prod);
       if (discRes.needsSave) persist("su-discount-v2", disc);
@@ -3435,6 +3524,7 @@ export default function App({ session, onLogout }) {
   const saveCalls = (next) => { setCalls(next); persist("su-calls-v1", next); };
   const savePayRequests = (next) => { setPayRequests(next); persist("su-payreq-v1", next); };
   const saveGroups = (next) => { setGroups(next); persist("su-groups-v1", next); };
+  const saveUmbrellas = (next) => { setUmbrellas(next); persist("su-umbrella-v1", next); };
 
   const [reminderTick, setReminderTick] = useState(0);
   useEffect(() => {
@@ -3505,6 +3595,15 @@ export default function App({ session, onLogout }) {
         note("✅ Оплата получена: " + r.label + ". Ссылка на урок открыта в разделе «Занятия».");
         return;
       }
+      const umb = umbrellas.find((u) => (u.memberIds || []).includes(r.studentId));
+      if (umb) {
+        const used = schedule.filter((sl) => umb.memberIds.includes(sl.studentId) && sl.type === "regular" && sl.status !== "cancelled" && sl.date < isoDate(0) && (!umb.assignedAt || sl.date >= umb.assignedAt)).length;
+        const total = Math.max(0, umb.total - used) + r.lessons;
+        saveUmbrellas(umbrellas.map((u) => (u.id === umb.id ? { ...u, total, assignedAt: isoDate(0) } : u)));
+        saveSales([...sales, { id: uid("sale"), date: isoDate(0), productId: r.productId, qty: 1, discounted: false, studentId: r.studentId, teacherId: r.teacherId || null, amount: r.amount || 0, payout: 0 }]);
+        note("✅ Оплата получена: " + r.label + " «Под одним зонтом». В пакете теперь " + total + " занятий на все предметы. Спасибо!");
+        return;
+      }
       // Paid lessons go on top of what is left in the current package.
       const date = isoDate(0);
       const product = products.find((p) => p.id === r.productId);
@@ -3569,7 +3668,8 @@ export default function App({ session, onLogout }) {
       if (packageTotal === null) return { ...s, packageProductId: null, packageTotal: null, packageAssignedAt: null, packageLabel: "" };
       return { ...s, packageProductId: packageProductId || null, packageTotal, packageLabel: packageLabel || "", packageAssignedAt: s.packageAssignedAt || isoDate(0) };
     })),
-    addCheckpoint: (studentId, { title, maxScore, achievedScore, note }) => saveStudents(students.map((s) => s.id === studentId ? { ...s, checkpoints: [...(s.checkpoints || []), { id: uid("chk"), title: title.trim(), maxScore: Number(maxScore), achievedScore: Number(achievedScore), note: (note || "").trim(), date: isoDate(0) }] } : s)),
+    addCheckpoint: (studentId, { title, maxScore, achievedScore, note, kind, date, monthKey }) => saveStudents(students.map((s) => s.id === studentId ? { ...s, checkpoints: [...(s.checkpoints || []), { id: uid("chk"), title: title.trim(), maxScore: Number(maxScore), achievedScore: Number(achievedScore), note: (note || "").trim(), date: date || isoDate(0), kind: kind || "check", ...(monthKey ? { monthKey } : {}) }] } : s)),
+    setSelfWeek: (studentId, weekKey, patch) => saveStudents(students.map((s) => (s.id === studentId ? { ...s, selfWeeks: { ...(s.selfWeeks || {}), [weekKey]: { ...((s.selfWeeks || {})[weekKey] || {}), ...patch } } } : s))),
     removeCheckpoint: (studentId, chkId) => saveStudents(students.map((s) => s.id === studentId ? { ...s, checkpoints: (s.checkpoints || []).filter((c) => c.id !== chkId) } : s)),
     toggleCanRequestTeacherChange: (studentId) => saveStudents(students.map((s) => s.id === studentId ? { ...s, canRequestTeacherChange: !s.canRequestTeacherChange } : s)),
     requestTeacherChange: (studentId, note) => saveStudents(students.map((s) => s.id === studentId ? { ...s, teacherChangeRequest: { at: new Date().toISOString(), note: note || "" } } : s)),
@@ -3583,20 +3683,54 @@ export default function App({ session, onLogout }) {
     updateTopic: (studentId, kind, topicId, patch) => saveStudents(students.map((s) => s.id === studentId ? { ...s, [kind]: s[kind].map((t) => (t.id === topicId ? { ...t, ...patch } : t)) } : s)),
     setHomeworkStatus: (studentId, hwId, status, feedback) => saveStudents(students.map((s) => s.id === studentId ? { ...s, homework: (s.homework || []).map((h) => h.id === hwId ? { ...h, status, feedback: (feedback ?? "").trim() ? feedback.trim() : h.feedback || "", reviewedAt: status === "reviewed" ? new Date().toISOString() : h.reviewedAt } : h) } : s)),
     removeHomework: (studentId, hwId) => saveStudents(students.map((s) => s.id === studentId ? { ...s, homework: (s.homework || []).filter((h) => h.id !== hwId) } : s)),
-    setFormat: (studentId, format) => saveStudents(students.map((s) => (s.id === studentId ? { ...s, format } : s))),
-    // «Под одним зонтом»: a second card of the same person for the other direction, one package for both.
-    linkUmbrella: (studentId, teacherId) => {
-      const base = students.find((s) => s.id === studentId);
-      const t = teachers.find((x) => x.id === teacherId);
-      if (!base || !t) return;
-      const id = uid("s");
-      const lvl = SUBJECTS[t.subject].levels[0];
-      const twin = normalizeStudent({ id, teacherId, name: base.name, contact: base.contact, goal: base.goal, status: base.status, planType: base.planType, format: "umbrella", umbrellaWith: base.id, startLevel: lvl, currentLevel: lvl, packageProductId: base.packageProductId, packageTotal: base.packageTotal, packageAssignedAt: base.packageAssignedAt, packageLabel: base.packageLabel });
-      saveStudents([...students.map((s) => (s.id === studentId ? { ...s, format: "umbrella", umbrellaWith: id } : s)), twin]);
+    setFormat: (studentId, format) => {
+      saveStudents(students.map((s) => (s.id === studentId ? { ...s, format } : s)));
+      const now = Date.now();
+      saveSchedule(schedule.map((sl) => (sl.studentId === studentId && !sl.groupId && sl.type !== "trial" && new Date(sl.date + "T" + sl.time + ":00").getTime() > now ? { ...sl, format } : sl)));
     },
-    unlinkUmbrella: (studentId) => {
-      const other = students.find((s) => s.id === studentId)?.umbrellaWith;
-      saveStudents(students.map((s) => (s.id === studentId || s.id === other ? { ...s, umbrellaWith: null } : s)));
+    // «Под одним зонтом»: one package, a student card per subject (each with its own teacher).
+    createUmbrella: ({ baseId, name, contact, total, rows }) => {
+      const base = students.find((x) => x.id === baseId);
+      const id = uid("um");
+      const date = isoDate(0);
+      const created = [];
+      const memberIds = rows.map((r) => {
+        if (base && base.teacherId === r.teacherId) return base.id;
+        const t = teachers.find((x) => x.id === r.teacherId);
+        const lvl = SUBJECTS[t.subject].levels[0];
+        const nid = uid("s");
+        created.push(normalizeStudent({ id: nid, teacherId: t.id, name: base?.name || name, contact: base?.contact || contact, goal: base?.goal || "", status: "active", planType: "package", startLevel: lvl, currentLevel: lvl }));
+        return nid;
+      });
+      saveUmbrellas([...umbrellas, { id, name: base?.name || name, contact: base?.contact || contact, total, assignedAt: date, memberIds, createdAt: new Date().toISOString() }]);
+      saveStudents([...students, ...created].map((x) => (memberIds.includes(x.id) ? { ...x, format: "umbrella", umbrellaId: id } : x)));
+      const now = Date.now();
+      saveSchedule(schedule.map((sl) => (memberIds.includes(sl.studentId) && sl.type !== "trial" && new Date(sl.date + "T" + sl.time + ":00").getTime() > now ? { ...sl, format: "umbrella" } : sl)));
+    },
+    addUmbrellaSubject: (umId, teacherId) => {
+      const u = umbrellas.find((x) => x.id === umId);
+      const t = teachers.find((x) => x.id === teacherId);
+      if (!u || !t) return;
+      const lvl = SUBJECTS[t.subject].levels[0];
+      const nid = uid("s");
+      saveStudents([...students, normalizeStudent({ id: nid, teacherId, name: u.name, contact: u.contact, status: "active", planType: "package", startLevel: lvl, currentLevel: lvl, format: "umbrella", umbrellaId: umId })]);
+      saveUmbrellas(umbrellas.map((x) => (x.id === umId ? { ...x, memberIds: [...x.memberIds, nid] } : x)));
+    },
+    removeUmbrellaSubject: (umId, studentId) => {
+      saveUmbrellas(umbrellas.map((x) => (x.id === umId ? { ...x, memberIds: x.memberIds.filter((m) => m !== studentId) } : x)));
+      saveStudents(students.map((x) => (x.id === studentId ? { ...x, format: "individual", umbrellaId: null } : x)));
+    },
+    // A new package: what is left of the old one moves into it.
+    renewUmbrella: (umId, n) => {
+      const u = umbrellas.find((x) => x.id === umId);
+      if (!u) return;
+      const used = schedule.filter((sl) => u.memberIds.includes(sl.studentId) && sl.type === "regular" && sl.status !== "cancelled" && sl.date < isoDate(0) && (!u.assignedAt || sl.date >= u.assignedAt)).length;
+      saveUmbrellas(umbrellas.map((x) => (x.id === umId ? { ...x, total: Math.max(0, u.total - used) + n, assignedAt: isoDate(0) } : x)));
+    },
+    removeUmbrella: (umId) => {
+      const u = umbrellas.find((x) => x.id === umId);
+      saveUmbrellas(umbrellas.filter((x) => x.id !== umId));
+      if (u) saveStudents(students.map((x) => (u.memberIds.includes(x.id) ? { ...x, format: "individual", umbrellaId: null } : x)));
     },
     createGroup: ({ kind, teacherId, studentIds }, then) => {
       const n = groups.filter((g) => g.kind === kind).length + 1;
@@ -3626,7 +3760,7 @@ export default function App({ session, onLogout }) {
           if (x.weekday !== wd) continue;
           for (const sid of g.studentIds || []) {
             if (schedule.some((sl) => sl.studentId === sid && sl.date === date && sl.time === x.time && sl.status !== "cancelled")) continue;
-            add.push({ id: uid("sl"), teacherId: g.teacherId, studentId: sid, groupId: g.id, groupName: g.name, date, time: x.time, duration: x.duration || 60, type: "regular", status: "booked", requested: null, history: [], topicsCovered: [], lessonMaterial: "", paid: false, meetingLink: "", paymentRequest: null });
+            add.push({ id: uid("sl"), teacherId: g.teacherId, studentId: sid, groupId: g.id, groupName: g.name, format: g.kind, date, time: x.time, duration: x.duration || 60, type: "regular", status: "booked", requested: null, history: [], topicsCovered: [], lessonMaterial: "", paid: false, meetingLink: "", paymentRequest: null });
           }
         }
       }
@@ -3642,8 +3776,8 @@ export default function App({ session, onLogout }) {
     removeMaterial: (studentId, matId) => saveStudents(students.map((s) => s.id === studentId ? { ...s, materials: (s.materials || []).filter((m) => m.id !== matId) } : s)),
     addExamMaterial: (studentId, title, note, url, file) => saveStudents(students.map((s) => s.id === studentId ? { ...s, examMaterials: [...(s.examMaterials || []), { id: uid("em"), title, note, url: url || "", fileName: file?.name || "", fileType: file?.type || "", fileDataUrl: file?.dataUrl || "" }] } : s)),
     removeExamMaterial: (studentId, matId) => saveStudents(students.map((s) => s.id === studentId ? { ...s, examMaterials: (s.examMaterials || []).filter((m) => m.id !== matId) } : s)),
-    addHomework: (studentId, { title, material, dueDate, materialAttachment }) => saveStudents(students.map((s) => s.id === studentId ? { ...s, homework: [...(s.homework || []), { id: uid("hw"), title: title.trim(), material: (material || "").trim(), materialAttachment: materialAttachment || null, dueDate: dueDate || null, status: "assigned", submissionText: "", submissionAttachment: null, submittedAt: null, feedback: "", createdAt: isoDate(0) }] } : s)),
-    submitHomework: (studentId, hwId, text, attachment) => saveStudents(students.map((s) => s.id === studentId ? { ...s, homework: (s.homework || []).map((h) => h.id === hwId ? { ...h, submissionText: text, submissionAttachment: attachment || null, submittedAt: new Date().toISOString(), status: "submitted" } : h) } : s)),
+    addHomework: (studentId, { title, material, dueDate, materialAttachment, materialAttachments, mediaLink }) => saveStudents(students.map((s) => s.id === studentId ? { ...s, homework: [...(s.homework || []), { id: uid("hw"), title: title.trim(), material: (material || "").trim(), materialAttachment: materialAttachment || null, materialAttachments: materialAttachments || [], mediaLink: mediaLink || "", dueDate: dueDate || null, status: "assigned", submissionText: "", submissionAttachment: null, submittedAt: null, feedback: "", createdAt: isoDate(0) }] } : s)),
+    submitHomework: (studentId, hwId, text, attachments) => saveStudents(students.map((s) => s.id === studentId ? { ...s, homework: (s.homework || []).map((h) => h.id === hwId ? { ...h, submissionText: text, ...(Array.isArray(attachments) ? (attachments.length ? { submissionAttachment: null, submissionAttachments: attachments } : {}) : { submissionAttachment: attachments || null }), submittedAt: new Date().toISOString(), status: "submitted" } : h) } : s)),
     markHomeworkInReview: (studentId, hwId) => saveStudents(students.map((s) => s.id === studentId ? { ...s, homework: (s.homework || []).map((h) => h.id === hwId ? { ...h, status: "in_review" } : h) } : s)),
     reviewHomework: (studentId, hwId, feedback) => saveStudents(students.map((s) => s.id === studentId ? { ...s, homework: (s.homework || []).map((h) => h.id === hwId ? { ...h, feedback: feedback || "", status: "reviewed" } : h) } : s)),
     sendHomeworkForRevision: (studentId, hwId, feedback) => saveStudents(students.map((s) => s.id === studentId ? { ...s, homework: (s.homework || []).map((h) => h.id === hwId ? { ...h, feedback: feedback || "", status: "needs_revision" } : h) } : s)),
@@ -3672,6 +3806,7 @@ export default function App({ session, onLogout }) {
     addSlot: (teacherId, { date, time, duration, type, studentId, trialName }) => {
       saveSchedule([...schedule, {
         id: uid("sl"), teacherId, studentId: studentId || null, trialName: trialName || "", date, time, duration, type,
+        format: type === "trial" ? "trial" : (students.find((x) => x.id === studentId)?.format || "individual"),
         status: (studentId || trialName) ? "booked" : "available",
         requested: null, history: [], topicsCovered: [], lessonMaterial: "", paid: false, meetingLink: "", paymentRequest: null,
       }]);
@@ -3692,7 +3827,7 @@ export default function App({ session, onLogout }) {
     },
     cancelSlot: (slotId) => saveSchedule(schedule.map((sl) => sl.id === slotId ? { ...sl, status: "cancelled" } : sl)),
     rescheduleSlot: (slotId, newDate, newTime) => saveSchedule(schedule.map((sl) => sl.id === slotId ? { ...sl, history: [...sl.history, { date: sl.date, time: sl.time }], date: newDate, time: newTime, requested: null, status: "booked" } : sl)),
-    updateSlotDetails: (slotId, { duration, type, trialName }) => saveSchedule(schedule.map((sl) => sl.id === slotId ? { ...sl, duration, type, trialName: trialName || "" } : sl)),
+    updateSlotDetails: (slotId, { duration, type, trialName, format, isCheck }) => saveSchedule(schedule.map((sl) => sl.id === slotId ? { ...sl, duration, type, trialName: trialName || "", ...(format ? { format } : {}), isCheck: !!isCheck } : sl)),
     addSlotTopic: (slotId, name) => saveSchedule(schedule.map((sl) => sl.id === slotId ? { ...sl, topicsCovered: [...(sl.topicsCovered || []), name] } : sl)),
     removeSlotTopic: (slotId, name) => saveSchedule(schedule.map((sl) => sl.id === slotId ? { ...sl, topicsCovered: (sl.topicsCovered || []).filter((n) => n !== name) } : sl)),
     setSlotMaterial: (slotId, text) => saveSchedule(schedule.map((sl) => sl.id === slotId ? { ...sl, lessonMaterial: text } : sl)),
@@ -3734,6 +3869,7 @@ export default function App({ session, onLogout }) {
     updateProduct: (id, patch) => saveProducts(products.map((p) => (p.id === id ? { ...p, ...patch } : p))),
     removeProduct: (id) => saveProducts(products.filter((p) => p.id !== id)),
     setDiscount: (percent) => saveDiscount(Number(percent) || 0),
+    setTeacherRate: (teacherId, kind, amount) => saveTeachers(teachers.map((t) => (t.id === teacherId ? { ...t, rates: { ...(t.rates || {}), [kind]: amount } } : t))),
     setTeacherPayoutRate: (teacherId, productId, amount) => saveTeachers(teachers.map((t) => t.id === teacherId ? { ...t, payoutOverrides: { ...(t.payoutOverrides || {}), [productId]: amount === null ? undefined : Number(amount) || 0 } } : t)),
     addSale: ({ date, productId, qty, discounted, studentId, teacherId }) => {
       const product = products.find((p) => p.id === productId);
@@ -3755,7 +3891,7 @@ export default function App({ session, onLogout }) {
     },
     addExpense: (date, category, amount, note) => saveExpenses([...expenses, { id: uid("exp"), date, category, amount: Number(amount) || 0, note: note || "" }]),
     removeExpense: (id) => saveExpenses(expenses.filter((x) => x.id !== id)),
-    resetDemo: () => { saveTeachers(seedTeachers); saveStudents(seedStudents); saveSchedule(seedSchedule); saveSales(seedSales); saveProducts(seedProducts); saveDiscount(seedDiscountPercent); saveExpenses([]); setResetArmed(false); },
+    resetDemo: () => { saveTeachers(seedTeachers); saveStudents(seedStudents); saveSchedule(seedSchedule); saveSales(seedSales); saveProducts(seedProducts); saveDiscount(seedDiscountPercent); saveExpenses([]); saveLibrary(seedLibrary); saveCalls([]); savePayRequests([]); saveGroups([]); saveUmbrellas(seedUmbrellas); setResetArmed(false); },
   };
 
   async function runDiagnostics() {
@@ -3799,7 +3935,7 @@ export default function App({ session, onLogout }) {
   }
 
   function exportAllData() {
-    const payload = { teachers, students, schedule, sales, products, discountPercent, expenses, library, calls, payRequests, groups, exportedAt: new Date().toISOString() };
+    const payload = { teachers, students, schedule, sales, products, discountPercent, expenses, library, calls, payRequests, groups, umbrellas, exportedAt: new Date().toISOString() };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -3825,6 +3961,7 @@ export default function App({ session, onLogout }) {
       if (data.calls) saveCalls(data.calls);
       if (data.payRequests) savePayRequests(data.payRequests);
       if (data.groups) saveGroups(data.groups);
+      if (data.umbrellas) saveUmbrellas(data.umbrellas);
       setErrorMsg("");
       return true;
     } catch (e) {
@@ -3843,7 +3980,7 @@ export default function App({ session, onLogout }) {
     );
   }
 
-  const ext = { library, calls, payRequests, groups, students, teachers };
+  const ext = { library, calls, payRequests, groups, umbrellas, students, teachers };
   const currentTeacher = teachers.find((t) => t.id === asTeacherId && t.department === department) || teachers.filter((t) => t.department === department)[0];
   const currentStudent = students.find((s) => s.id === asStudentId) || null;
   const currentStudentTeacher = currentStudent ? teachers.find((t) => t.id === currentStudent.teacherId) : null;
@@ -3883,7 +4020,7 @@ export default function App({ session, onLogout }) {
         )}
         {role === "student" && currentStudent && <CallAdminButton role="student" calls={calls} fromId={currentStudent.id} onCall={(d) => actions.callAdmin("student", currentStudent.id, d)} />}
         {role === "teacher" && currentTeacher && <CallAdminButton role="teacher" calls={calls} fromId={currentTeacher.id} onCall={(d) => actions.callAdmin("teacher", currentTeacher.id, d)} />}
-        <a className="logout-btn site-link" href="/" title="Вернуться на сайт Study Umbrella">← На сайт</a>
+        <a className="logout-btn site-link" href="/" title="Вернуться на сайт Study Umbrella">← <span className="site-txt">На сайт</span></a>
         <button className="logout-btn" onClick={onLogout} title="Выйти">Выйти</button>
       </header>
 
@@ -4113,6 +4250,8 @@ const CSS = `
 .homework-list { display:flex; flex-direction:column; gap:10px; margin-top:8px; }
 .homework-item { background: var(--paper); border-radius:12px; padding:12px; }
 .hw-submission { background: var(--card); border-radius:8px; padding:8px; margin-top:6px; }
+.attach-list { display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
+.attachment-chip.media { flex-direction:column; align-items:flex-start; gap:4px; }
 .hw-status-bar { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:8px; padding-top:8px; border-top:1px dashed var(--border); }
 .hw-feedback { margin-top:6px; font-size:12.5px; background: var(--accent-soft); color: var(--ink); padding:6px 8px; border-radius:8px; }
 

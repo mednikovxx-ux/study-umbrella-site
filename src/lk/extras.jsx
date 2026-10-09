@@ -50,11 +50,10 @@ const ST = { done: "Пройдено", in_progress: "В работе", todo: "В
 
 export function StudentOverview({ student, teacher, subjMeta, slots, payRequests, onPay, onPayAction, ctx = {}, showProgram = true }) {
   const fmt = formatOf(student);
-  const linked = fmt === "umbrella" && student.umbrellaWith ? (ctx.students || []).find((s) => s.id === student.umbrellaWith) : null;
-  const linkedTeacher = linked ? (ctx.teachers || []).find((t) => t.id === linked.teacherId) : null;
-  const um = fmt === "umbrella" ? umbrellaStats(student, linked, ctx.allSlots || slots) : null;
+  const umb = fmt === "umbrella" ? umbrellaOf(ctx.umbrellas, student) : null;
+  const um = umb ? umbrellaStats(umb, ctx.students || [], ctx.teachers || [], ctx.allSlots || slots, ctx.subjectMeta) : null;
   const grp = (fmt === "pair" || fmt === "group") ? groupOf(ctx.groups, student.id) : null;
-  const pk = um ? { total: um.total, used: um.usedA + um.usedB, left: um.left } : packageStats(student, slots);
+  const pk = um ? { total: um.total, used: um.used, left: um.left } : packageStats(student, slots);
   // «Сам, но не один»: this week's lesson, task and written review.
   const wk = (() => { const d = new Date(); const mon = new Date(d); mon.setDate(d.getDate() - ((d.getDay() + 6) % 7)); const from = mon.toISOString().slice(0, 10); const to = new Date(mon.getTime() + 7 * 864e5).toISOString().slice(0, 10);
     const lesson = (slots || []).find((sl) => sl.studentId === student.id && sl.status !== "cancelled" && sl.date >= from && sl.date < to);
@@ -80,24 +79,17 @@ export function StudentOverview({ student, teacher, subjMeta, slots, payRequests
       <div className="ov-card ov-fmt">
         <FormatBadge student={student} />
         <span className="ov-note" style={{ margin: 0 }}>{FORMATS[fmt].hint}</span>
-        {linked && <span className="ov-note" style={{ margin: 0 }}>Второе направление: <b>{ctx.subjectMeta?.[linkedTeacher?.subject]?.emoji} {ctx.subjectMeta?.[linkedTeacher?.subject]?.label}</b> — {linkedTeacher?.name}</span>}
+        {um && <span className="ov-note" style={{ margin: 0 }}>В пакете: {um.rows.map((r) => r.emoji + " " + r.label).join(" + ")}</span>}
         {grp && <span className="ov-note" style={{ margin: 0 }}>{grp.name}: {scheduleText(grp)} · вместе с {(grp.studentIds || []).filter((id) => id !== student.id).map((id) => (ctx.students || []).find((s) => s.id === id)?.name.split(" ")[0]).filter(Boolean).join(", ") || "—"}</span>}
-        {fmt === "self" && (
-          <div className="week-track" style={{ width: "100%" }}>
-            <div className={"week-step" + (wk.lesson && wk.lesson.date < today() ? " ok" : "")}>1. Урок недели: {wk.lesson ? fmtD(wk.lesson.date) + " в " + wk.lesson.time : "не назначен"}</div>
-            <div className={"week-step" + (wk.task && wk.task.status !== "assigned" ? " ok" : "")}>2. Задание: {wk.task ? (wk.task.status === "assigned" ? "ждёт выполнения" : wk.task.status === "needs_revision" ? "на доработке" : "сдано") : "ещё не выдано"}</div>
-            <div className={"week-step" + (wk.task && wk.task.status === "reviewed" ? " ok" : "")}>3. Письменный разбор: {wk.task && wk.task.status === "reviewed" ? "готов" : "после сдачи"}</div>
-          </div>
-        )}
       </div>
       <div className="ov-grid">
         <div className="ov-card">
-          <div className="ov-label">{fmt === "self" ? "☂️ Абонемент на месяц" : fmt === "umbrella" ? "🌂 Общий пакет на два направления" : "📦 Пакет"}</div>
+          <div className="ov-label">{fmt === "self" ? "☂️ Абонемент на месяц" : fmt === "umbrella" ? "🌂 Комплексный пакет" : "📦 Пакет"}</div>
           {pk.total ? <>
             <div className="ov-big">{pk.left} <span>из {pk.total} осталось</span></div>
             <div className="progress-track"><div className="progress-fill" style={{ width: Math.round(pk.used / pk.total * 100) + "%" }} /></div>
-            <div className="ov-note">Пройдено {lessonsWord(pk.used)}{um && linkedTeacher ? " (" + subjMeta.label + " — " + um.usedA + ", " + (ctx.subjectMeta?.[linkedTeacher.subject]?.label || "") + " — " + um.usedB + ")" : ""}{student.packageLabel && !um ? " · " + student.packageLabel : ""}</div>
-            {um && (um.usedA < 3 || um.usedB < 3) && <div className="ov-note">Минимум 3 занятия на каждое направление.</div>}
+            <div className="ov-note">Пройдено {lessonsWord(pk.used)}{student.packageLabel && !um ? " · " + student.packageLabel : ""}</div>
+            {um && <UmbrellaBreakdown st={um} mineId={student.id} />}
           </> : <div className="ov-note">Пакет не оформлен: занятия оплачиваются по одному.</div>}
           {pk.total > 0 && pk.left <= 1 && <div className="ov-warn">{pk.left === 0 ? "Занятия в пакете закончились" : "Осталось последнее занятие"}: самое время продлить.</div>}
           <button className="btn-small accent" style={{ marginTop: 10 }} onClick={onPay}><CreditCard size={13} /> Оплатить / продлить</button>
@@ -460,7 +452,18 @@ export const EXTRA_CSS_BASE = `
 .lib-meta { font-size:11px; color:#8a887f; margin-top:4px; }
 .lib-empty { padding:4px 0 8px; }
 @media (max-width: 1500px) { .role-switch-label { display:none; } }
-@media (max-width: 1280px) { .call-btn .call-txt { display:none; } }
+@media (max-width: 1700px) { .call-btn .call-txt { display:none; } }
+@media (max-width: 1300px) {
+  .header-titles { display:none !important; }
+  .top-bar .mini-select { max-width:190px; }
+  .site-link .site-txt { display:none; }
+  .role-btn { padding:6px 10px !important; font-size:12px !important; }
+}
+.top-bar .logout-btn { white-space:nowrap; }
+.student-item > .btn-icon.danger, .student-item > button.btn-icon { width:26px; height:26px; min-width:26px; opacity:0; transition:opacity .15s; align-self:flex-start; margin-top:4px; }
+.student-item:hover > .btn-icon, .student-item.active > .btn-icon, .student-item > .btn-icon:focus-visible { opacity:.75; }
+.student-item > .btn-icon.armed { opacity:1; }
+.student-item-meta { flex-wrap:wrap; }
 @media (max-width: 900px) {
   .ov-grid, .ov-cols { grid-template-columns:minmax(0,1fr); }
   .call-btn { padding:7px 10px; }
@@ -472,9 +475,9 @@ export const EXTRA_CSS_BASE = `
 export const FORMATS = {
   individual: { icon: "👤", label: "Индивидуально", hint: "Один на один с преподавателем, программа под цель. Пакеты 4/6/8/12 или разовые занятия." },
   self: { icon: "☂️", label: "«Сам, но не один»", hint: "Абонемент на месяц: одно занятие в неделю (4 в месяц), между ними задание под пробелы и письменный разбор." },
-  umbrella: { icon: "🌂", label: "«Под одним зонтом»", hint: "Один пакет на 8 или 12 занятий на два направления, у каждого свой преподаватель. Минимум 3 занятия на направление." },
+  umbrella: { icon: "🌂", label: "«Под одним зонтом»", hint: "Комплексный пакет: несколько предметов в любой комбинации в одном пакете, у каждого предмета свой преподаватель, остаток общий." },
   pair: { icon: "👥", label: "В паре", hint: "Занятия вдвоём со своим партнёром по общему расписанию. Цена за одного." },
-  group: { icon: "👨‍👩‍👧", label: "Мини-группа", hint: "3–4 человека, курс с общим стартом. Расписание группы задают менеджер и преподаватель." },
+  group: { icon: "👨‍👩‍👧", label: "Мини-группа", hint: "3–4 человека, курс с общим стартом." },
 };
 export const formatOf = (s) => FORMATS[s.format] ? s.format : "individual";
 export const FormatBadge = ({ student }) => { const f = FORMATS[formatOf(student)]; return <span className="fmt-badge" title={f.hint}>{f.icon} {f.label}</span>; };
@@ -482,55 +485,57 @@ export const FormatBadge = ({ student }) => { const f = FORMATS[formatOf(student
 const WEEKDAYS = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"];
 const scheduleText = (g) => (g.slots || []).map((x) => WEEKDAYS[x.weekday - 1] + " " + x.time).join(", ") || "расписание не задано";
 export const groupOf = (groups, studentId) => (groups || []).find((g) => (g.studentIds || []).includes(studentId));
+export const umbrellaOf = (umbrellas, student) => (umbrellas || []).find((u) => u.id === student.umbrellaId || (u.memberIds || []).includes(student.id));
 
-// Lessons used across both directions of «Под одним зонтом».
-export function umbrellaStats(student, linked, slots) {
-  const owner = [student, linked].filter((x) => x && x.packageTotal).sort((a, b) => (b.packageAssignedAt || "").localeCompare(a.packageAssignedAt || ""))[0];
-  if (!owner) return null;
+// A complex package: lessons of every subject in it count against one total.
+export function umbrellaStats(u, students, teachers, slots, subjectMeta) {
   const t = today();
-  const since = owner.packageAssignedAt;
-  const usedBy = (id) => (slots || []).filter((sl) => sl.studentId === id && sl.type === "regular" && sl.status !== "cancelled" && sl.date < t && (!since || sl.date >= since)).length;
-  const a = usedBy(student.id), b = linked ? usedBy(linked.id) : 0;
-  return { total: owner.packageTotal, usedA: a, usedB: b, left: Math.max(0, owner.packageTotal - a - b) };
+  const rows = (u.memberIds || []).map((id) => {
+    const st = students.find((s) => s.id === id);
+    const te = st && teachers.find((x) => x.id === st.teacherId);
+    const used = (slots || []).filter((sl) => sl.studentId === id && sl.type === "regular" && sl.status !== "cancelled" && sl.date < t && (!u.assignedAt || sl.date >= u.assignedAt)).length;
+    return { id, subject: te?.subject, label: subjectMeta?.[te?.subject]?.label || "—", emoji: subjectMeta?.[te?.subject]?.emoji || "", teacher: te?.name || "—", used };
+  });
+  const used = rows.reduce((a, r) => a + r.used, 0);
+  return { rows, total: u.total || 0, used, left: Math.max(0, (u.total || 0) - used) };
 }
 
-export function FormatPanel({ student, students, teachers, groups, slots, subjectMeta, canEdit, actions, onOpenGroups }) {
-  const fmt = formatOf(student);
-  const linked = student.umbrellaWith ? students.find((s) => s.id === student.umbrellaWith) : null;
-  const linkedTeacher = linked ? teachers.find((t) => t.id === linked.teacherId) : null;
-  const myTeacher = teachers.find((t) => t.id === student.teacherId);
-  const g = groupOf(groups, student.id);
-  const [pickTeacher, setPickTeacher] = useState("");
-  const others = teachers.filter((t) => t.subject !== myTeacher?.subject);
-  const sameKindGroups = (groups || []).filter((x) => x.kind === fmt && x.teacherId === student.teacherId && !(x.studentIds || []).includes(student.id) && (x.studentIds || []).length < (x.kind === "pair" ? 2 : 4));
-  const um = fmt === "umbrella" ? umbrellaStats(student, linked, slots) : null;
+function UmbrellaBreakdown({ st, mineId }) {
+  return (
+    <div className="um-rows">
+      {st.rows.map((r) => (
+        <div key={r.id} className={"um-row" + (r.id === mineId ? " mine" : "")}>
+          <span>{r.emoji} {r.label}</span><span className="muted-text">{r.teacher}</span><b>{lessonsWord(r.used)}</b>
+        </div>
+      ))}
+      <div className="um-total">Пакет {st.total}: пройдено {st.used}, осталось <b>{st.left}</b></div>
+    </div>
+  );
+}
 
+// Format of the student: a visible select under the name; details below it.
+export function FormatPanel({ student, students, teachers, groups, umbrellas, slots, subjectMeta, canEdit, canManage, actions, onOpenAdminTab }) {
+  const fmt = formatOf(student);
+  const g = groupOf(groups, student.id);
+  const um = umbrellaOf(umbrellas, student);
+  const st = um ? umbrellaStats(um, students, teachers, slots, subjectMeta) : null;
+  const sameKind = (groups || []).filter((x) => x.kind === fmt && x.teacherId === student.teacherId && !(x.studentIds || []).includes(student.id) && (x.studentIds || []).length < (x.kind === "pair" ? 2 : 4));
   return (
     <div className="fmt-panel">
-      <div className="field-label">Формат обучения</div>
-      {canEdit ? (
-        <div className="row-gap" style={{ flexWrap: "wrap" }}>
-          {Object.entries(FORMATS).map(([k, f]) => <button key={k} className={"btn-small" + (fmt === k ? " accent" : "")} title={f.hint} onClick={() => actions.setFormat(student.id, k)}>{f.icon} {f.label}</button>)}
-        </div>
-      ) : <FormatBadge student={student} />}
-      <div className="hint-text" style={{ marginTop: 6 }}>{FORMATS[fmt].hint}</div>
+      <div className="fmt-head">
+        <span className="fmt-title">Формат</span>
+        {canEdit ? (
+          <select className="fmt-select" value={fmt} onChange={(e) => actions.setFormat(student.id, e.target.value)}>
+            {Object.entries(FORMATS).map(([k, f]) => <option key={k} value={k}>{f.icon} {f.label}</option>)}
+          </select>
+        ) : <FormatBadge student={student} />}
+      </div>
+      <div className="hint-text">{FORMATS[fmt].hint}</div>
 
       {fmt === "umbrella" && (
         <div className="fmt-box">
-          {linked ? <>
-            <div>🌂 Второе направление: <b>{subjectMeta[linkedTeacher?.subject]?.emoji} {subjectMeta[linkedTeacher?.subject]?.label}</b> — {linkedTeacher?.name}</div>
-            {um ? <div className="ov-note">Общий пакет {um.total}: {subjectMeta[myTeacher?.subject]?.label} — {um.usedA}, {subjectMeta[linkedTeacher?.subject]?.label} — {um.usedB}, осталось <b>{um.left}</b>. {(um.usedA < 3 || um.usedB < 3) && um.left <= 3 ? "Помните: минимум 3 занятия на направление." : ""}</div> : <div className="ov-note">Общий пакет ещё не оформлен.</div>}
-            {canEdit && <button className="btn-small" style={{ marginTop: 6 }} onClick={() => actions.unlinkUmbrella(student.id)}>Отвязать направление</button>}
-          </> : canEdit ? <>
-            <div className="hint-text">Выберите второе направление и преподавателя: у ученика появится вторая карточка с общим пакетом.</div>
-            <div className="row-gap">
-              <select className="mini-select" value={pickTeacher} onChange={(e) => setPickTeacher(e.target.value)}>
-                <option value="">Преподаватель второго направления…</option>
-                {others.map((t) => <option key={t.id} value={t.id}>{subjectMeta[t.subject].emoji} {subjectMeta[t.subject].label} — {t.name}</option>)}
-              </select>
-              <button className="btn-small accent" disabled={!pickTeacher} onClick={() => actions.linkUmbrella(student.id, pickTeacher)}>Связать</button>
-            </div>
-          </> : <div className="ov-note">Второе направление пока не подключено.</div>}
+          {st ? <UmbrellaBreakdown st={st} mineId={student.id} /> : <div className="ov-note">Комплексный пакет ещё не собран.{canManage ? "" : " Его оформляет администратор: предметы, преподаватели и размер пакета."}</div>}
+          {canManage && onOpenAdminTab && <button className="btn-small" onClick={() => onOpenAdminTab("umbrella")}>{st ? "Изменить пакет" : "Собрать пакет"} во вкладке «Под одним зонтом» →</button>}
         </div>
       )}
 
@@ -539,17 +544,108 @@ export function FormatPanel({ student, students, teachers, groups, slots, subjec
           {g ? <>
             <div>{FORMATS[g.kind].icon} <b>{g.name}</b> · {scheduleText(g)}</div>
             <div className="ov-note">Участники: {(g.studentIds || []).map((id) => students.find((s) => s.id === id)?.name || "—").join(", ")}</div>
-            {canEdit && <button className="btn-small" style={{ marginTop: 6 }} onClick={() => actions.leaveGroup(g.id, student.id)}>Убрать из {g.kind === "pair" ? "пары" : "группы"}</button>}
-          </> : canEdit ? <>
-            <div className="hint-text">Ученик ещё не в {fmt === "pair" ? "паре" : "группе"}.</div>
-            <div className="row-gap" style={{ flexWrap: "wrap" }}>
-              {sameKindGroups.map((x) => <button key={x.id} className="btn-small" onClick={() => actions.joinGroup(x.id, student.id)}>Добавить в «{x.name}»</button>)}
-              <button className="btn-small accent" onClick={() => actions.createGroup({ kind: fmt, teacherId: student.teacherId, studentIds: [student.id] })}><Plus size={13} /> Новая {fmt === "pair" ? "пара" : "группа"}</button>
-              {onOpenGroups && <button className="btn-small" onClick={onOpenGroups}>Расписание групп →</button>}
-            </div>
-          </> : <div className="ov-note">Группу подберёт менеджер.</div>}
+          </> : <div className="ov-note">Ученик ещё не в {fmt === "pair" ? "паре" : "группе"}.{canManage ? "" : " Состав и расписание задаёт администратор."}</div>}
+          {canManage && <div className="row-gap" style={{ flexWrap: "wrap" }}>
+            {g ? <button className="btn-small" onClick={() => actions.leaveGroup(g.id, student.id)}>Убрать из {g.kind === "pair" ? "пары" : "группы"}</button>
+              : <>{sameKind.map((x) => <button key={x.id} className="btn-small" onClick={() => actions.joinGroup(x.id, student.id)}>Добавить в «{x.name}»</button>)}
+                <button className="btn-small accent" onClick={() => actions.createGroup({ kind: fmt, teacherId: student.teacherId, studentIds: [student.id] })}><Plus size={13} /> Новая {fmt === "pair" ? "пара" : "группа"}</button></>}
+            {onOpenAdminTab && <button className="btn-small" onClick={() => onOpenAdminTab("groups")}>Расписание пар и групп →</button>}
+          </div>}
         </div>
       )}
+    </div>
+  );
+}
+
+/* -------------------------- «Под одним зонтом» -------------------------- */
+
+export const UMBRELLA_PRICES = { 8: 10000, 12: 14400 }; // «от», как на сайте
+
+export function UmbrellaPanel({ umbrellas, students, teachers, slots, subjectMeta, actions }) {
+  const [form, setForm] = useState(null);
+  const [addRow, setAddRow] = useState({});
+  const subjects = Object.keys(subjectMeta);
+  const blank = () => ({ baseId: "", name: "", contact: "", total: 12, rows: [{ subject: "", teacherId: "" }, { subject: "", teacherId: "" }] });
+  const teachersOf = (subj) => teachers.filter((t) => t.subject === subj);
+  const ok = form && (form.baseId || form.name.trim()) && form.rows.filter((r) => r.teacherId).length >= 2;
+
+  return (
+    <div className="lib">
+      <div className="row-gap" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
+        <div>
+          <h3 className="lib-title">🌂 «Под одним зонтом»: комплексные пакеты</h3>
+          <div className="hint-text">Один пакет на несколько предметов в любой комбинации. У каждого предмета свой преподаватель, занятия всех предметов списываются с общего остатка. На сайте: 8 занятий от 10 000 ₽, 12 занятий от 14 400 ₽.</div>
+        </div>
+        {!form && <button className="btn-small accent" onClick={() => setForm(blank())}><Plus size={13} /> Собрать пакет</button>}
+      </div>
+
+      {form && (
+        <div className="add-panel lib-form">
+          <div className="field-label">Ученик</div>
+          <div className="row-gap" style={{ flexWrap: "wrap" }}>
+            <select className="mini-select" value={form.baseId} onChange={(e) => { const b = students.find((s) => s.id === e.target.value); setForm({ ...form, baseId: e.target.value, name: b?.name || "", contact: b?.contact || "", rows: b ? [{ subject: teachers.find((t) => t.id === b.teacherId)?.subject || "", teacherId: b.teacherId }, ...form.rows.slice(1)] : form.rows }); }}>
+              <option value="">Новый ученик…</option>
+              {students.filter((s) => !s.umbrellaId).map((s) => <option key={s.id} value={s.id}>{s.name} — {subjectMeta[teachers.find((t) => t.id === s.teacherId)?.subject]?.label}</option>)}
+            </select>
+            {!form.baseId && <><input className="mini-input" placeholder="Имя" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /><input className="mini-input" placeholder="Контакт" value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })} /></>}
+          </div>
+          <div className="field-label">Предметы в пакете</div>
+          {form.rows.map((r, i) => (
+            <div className="row-gap" key={i}>
+              <select className="mini-select" value={r.subject} onChange={(e) => setForm({ ...form, rows: form.rows.map((x, j) => j === i ? { subject: e.target.value, teacherId: teachersOf(e.target.value)[0]?.id || "" } : x) })}>
+                <option value="">Предмет…</option>
+                {subjects.map((k) => <option key={k} value={k} disabled={form.rows.some((x, j) => j !== i && x.subject === k)}>{subjectMeta[k].emoji} {subjectMeta[k].label}</option>)}
+              </select>
+              <select className="mini-select" value={r.teacherId} disabled={!r.subject} onChange={(e) => setForm({ ...form, rows: form.rows.map((x, j) => j === i ? { ...x, teacherId: e.target.value } : x) })}>
+                {!r.subject && <option value="">Преподаватель…</option>}
+                {teachersOf(r.subject).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                {r.subject && teachersOf(r.subject).length === 0 && <option value="">нет преподавателя</option>}
+              </select>
+              {form.rows.length > 2 && <button className="btn-icon ghost" onClick={() => setForm({ ...form, rows: form.rows.filter((_, j) => j !== i) })}><Trash2 size={14} /></button>}
+            </div>
+          ))}
+          <button className="btn-small" onClick={() => setForm({ ...form, rows: [...form.rows, { subject: "", teacherId: "" }] })}><Plus size={13} /> Ещё предмет</button>
+          <div className="field-label">Размер пакета</div>
+          <div className="row-gap">
+            {[8, 12].map((n) => <button key={n} className={"btn-small" + (form.total === n ? " accent" : "")} onClick={() => setForm({ ...form, total: n })}>{n} занятий · от {rub(UMBRELLA_PRICES[n])}</button>)}
+            <input type="number" min="2" className="mini-input" style={{ width: 90 }} value={form.total} onChange={(e) => setForm({ ...form, total: Number(e.target.value) })} /> <span className="hint-text">занятий</span>
+          </div>
+          <div className="row-gap" style={{ justifyContent: "flex-end" }}>
+            <button className="btn-small" onClick={() => setForm(null)}>Отмена</button>
+            <button className="btn-small accent" disabled={!ok} onClick={() => { actions.createUmbrella({ baseId: form.baseId, name: form.name.trim(), contact: form.contact.trim(), total: form.total, rows: form.rows.filter((r) => r.teacherId) }); setForm(null); }}><Check size={13} /> Собрать пакет</button>
+          </div>
+        </div>
+      )}
+
+      {(umbrellas || []).length === 0 && !form && <div className="muted-text">Комплексных пакетов пока нет.</div>}
+      {(umbrellas || []).map((u) => {
+        const st = umbrellaStats(u, students, teachers, slots, subjectMeta);
+        const have = st.rows.map((r) => r.subject);
+        const ar = addRow[u.id] || { subject: "", teacherId: "" };
+        return (
+          <div key={u.id} className="um-card">
+            <div className="row-gap" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
+              <div><b style={{ fontSize: 16 }}>🌂 {u.name}</b> <span className="muted-text">· {u.contact || "контакт не указан"} · с {u.assignedAt ? fmtD(u.assignedAt) : "—"}</span></div>
+              <div className="row-gap">
+                {[8, 12].map((n) => <button key={n} className="btn-small" title="Новый пакет: остаток переносится" onClick={() => actions.renewUmbrella(u.id, n)}>Продлить +{n}</button>)}
+                <button className="btn-small danger" onClick={() => { if (window.confirm("Расформировать пакет «" + u.name + "»? Карточки учеников останутся.")) actions.removeUmbrella(u.id); }}>Расформировать</button>
+              </div>
+            </div>
+            <div className="progress-track" style={{ margin: "8px 0" }}><div className="progress-fill" style={{ width: (st.total ? Math.round(st.used / st.total * 100) : 0) + "%" }} /></div>
+            <UmbrellaBreakdown st={st} />
+            {st.rows.some((r) => r.used === 0) && st.left <= st.rows.length && <div className="ov-warn">Остаток заканчивается, а по некоторым предметам ещё не было занятий.</div>}
+            <div className="row-gap" style={{ marginTop: 8, flexWrap: "wrap" }}>
+              <select className="mini-select" value={ar.subject} onChange={(e) => setAddRow({ ...addRow, [u.id]: { subject: e.target.value, teacherId: teachersOf(e.target.value)[0]?.id || "" } })}>
+                <option value="">Добавить предмет…</option>
+                {subjects.filter((k) => !have.includes(k)).map((k) => <option key={k} value={k}>{subjectMeta[k].emoji} {subjectMeta[k].label}</option>)}
+              </select>
+              {ar.subject && <select className="mini-select" value={ar.teacherId} onChange={(e) => setAddRow({ ...addRow, [u.id]: { ...ar, teacherId: e.target.value } })}>{teachersOf(ar.subject).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select>}
+              {ar.teacherId && <button className="btn-small accent" onClick={() => { actions.addUmbrellaSubject(u.id, ar.teacherId); setAddRow({ ...addRow, [u.id]: { subject: "", teacherId: "" } }); }}><Plus size={13} /> Добавить</button>}
+              {st.rows.length > 2 && <select className="mini-select" value="" onChange={(e) => e.target.value && actions.removeUmbrellaSubject(u.id, e.target.value)}><option value="">Убрать предмет…</option>{st.rows.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}</select>}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -704,9 +800,19 @@ export function ProgramEditor({ label, topics, levels, bank, startLevel, current
 }
 
 const FORMAT_CSS = `
-.fmt-badge { display:inline-flex; gap:4px; align-items:center; font-size:12px; font-weight:600; background:#f3eee4; border-radius:999px; padding:2px 10px; white-space:nowrap; }
-.fmt-panel { display:flex; flex-direction:column; gap:4px; }
-.fmt-box { margin-top:8px; background:#f6f2ea; border-radius:14px; padding:10px 14px; display:flex; flex-direction:column; gap:6px; }
+.fmt-badge { display:inline-flex; gap:3px; align-items:center; font-size:11px; font-weight:600; color:var(--ink-soft, #55544d); background:#f3eee4; border-radius:6px; padding:1px 7px; white-space:nowrap; }
+.fmt-panel { display:flex; flex-direction:column; gap:4px; margin:8px 0 4px; }
+.fmt-head { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.fmt-title { font:700 11px var(--font-ui, sans-serif); text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft, #6b6a63); }
+.fmt-select { font:500 13px var(--font-ui, sans-serif); color:var(--ink, #1E2B2F); border:1px solid var(--border, #e2dccf); border-radius:8px; padding:4px 8px; background:#fff; cursor:pointer; }
+.fmt-select:hover { border-color:var(--accent, #2F6F73); }
+.fmt-panel > .hint-text { font-size:12px; }
+.um-rows { display:flex; flex-direction:column; gap:4px; margin-top:6px; }
+.um-row { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) auto; gap:8px; font-size:13px; padding:4px 0; border-bottom:1px solid rgba(30,43,47,.07); }
+.um-row.mine { font-weight:700; }
+.um-total { font-size:13px; margin-top:4px; }
+.um-card { background:#fff; border:1.5px solid var(--line, #e2dccf); border-radius:18px; padding:14px 16px; }
+.fmt-box { margin-top:2px; background:transparent; border-left:3px solid var(--accent, #2F6F73); border-radius:0 !important; padding:2px 0 2px 10px !important; border-radius:14px; padding:10px 14px; display:flex; flex-direction:column; gap:6px; }
 .prog { display:flex; flex-direction:column; gap:6px; }
 .prog-level { border:1.5px solid var(--line, #e2dccf); border-radius:14px; background:#fff; }
 .prog-level.current { border-color:var(--teal, #2F6F73); }
@@ -770,6 +876,7 @@ export function StudentLessons({ student, teacher, slots, products, payRequests,
           <div key={sl.id} className={"lesson-row" + (sl.paid ? " paid" : "")}>
             <div className="lesson-main">
               <div className="lesson-when">{fmtD(sl.date)} · {sl.time} <span className="muted-text">· {sl.duration || 60} мин · {teacher.name}{sl.groupName ? " · 👥 " + sl.groupName : ""}</span></div>
+              {sl.isCheck && <div className="st-wait">📝 Контрольный срез</div>}
               {sl.topicsCovered?.length > 0 && <div className="hint-text">Тема: {sl.topicsCovered.join(", ")}</div>}
               <div className="lesson-status">
                 {sl.status === "reschedule-requested" ? <span className="st-wait">🔁 Вы предложили перенос на {sl.requested ? fmtD(sl.requested.date) + " " + sl.requested.time : "другое время"}, ждём ответа преподавателя</span>
@@ -813,6 +920,7 @@ export function StudentLessons({ student, teacher, slots, products, payRequests,
           <div key={sl.id} className={"lesson-row past" + (sl.status === "cancelled" ? " cancelled" : "")}>
             <div className="lesson-main">
               <div className="lesson-when">{fmtD(sl.date)} · {sl.time} <span className="muted-text">· {teacher.name}{sl.groupName ? " · 👥 " + sl.groupName : ""}</span>
+                {sl.isCheck && <span className="ck-kind" style={{ marginLeft: 8 }}>📝 срез</span>}
                 <span className={sl.status === "cancelled" ? "st-bad" : "st-ok"} style={{ marginLeft: 8 }}>{sl.status === "cancelled" ? (sl.cancelledBy === "student" ? "отменён вами" : "отменён") : "проведён"}</span>
               </div>
               {sl.status !== "cancelled" && <>
@@ -1040,4 +1148,226 @@ export const CHARTS_CSS = `
 .ch-kpis { display:flex; flex-wrap:wrap; gap:6px 18px; font-size:13px; margin-bottom:8px; }
 @media (max-width: 900px) { .ch-grid { grid-template-columns:minmax(0,1fr); } .ch-bar-row { grid-template-columns:90px minmax(0,1fr) 40px; } }
 `;
-export const EXTRA_CSS = EXTRA_CSS_BASE + FORMAT_CSS + LESSONS_CSS + CHARTS_CSS;
+
+
+/* ------------------------- teacher rates & payroll ------------------------- */
+
+// Lesson kinds the school pays differently for. A group or pair lesson is paid once, not per student.
+export const LESSON_KINDS = {
+  individual: "👤 Индивидуальный",
+  self: "☂️ «Сам, но не один»",
+  umbrella: "🌂 «Под одним зонтом»",
+  pair: "👥 Пара",
+  group: "👨‍👩‍👧 Мини-группа",
+  trial: "🎓 Пробный",
+};
+export const DEFAULT_RATES = { individual: 0, self: 0, umbrella: 0, pair: 0, group: 0, trial: 0 };
+
+export const slotKind = (sl, students) => sl.format || (sl.type === "trial" ? "trial" : sl.groupId ? ((students || []).find((s) => s.id === sl.studentId)?.format === "pair" ? "pair" : "group") : formatOf((students || []).find((s) => s.id === sl.studentId) || {}));
+
+// Lessons that already took place in the month; one group lesson counts once.
+export function teacherPayroll(teacher, slots, students, monthPrefix) {
+  const now = Date.now();
+  const seen = new Set();
+  const done = (slots || []).filter((sl) => {
+    if (sl.teacherId !== teacher.id || !sl.date.startsWith(monthPrefix) || sl.status === "cancelled" || sl.status === "available") return false;
+    if (new Date(sl.date + "T" + sl.time + ":00").getTime() > now) return false;
+    if (!sl.studentId && !sl.trialName) return false;
+    if (sl.groupId) { const k = sl.groupId + sl.date + sl.time; if (seen.has(k)) return false; seen.add(k); }
+    return true;
+  });
+  const rates = { ...DEFAULT_RATES, ...(teacher.rates || {}) };
+  const rows = Object.keys(LESSON_KINDS).map((k) => { const n = done.filter((sl) => slotKind(sl, students) === k).length; return { kind: k, n, rate: rates[k] || 0, sum: n * (rates[k] || 0) }; });
+  return { rows, lessons: done.length, total: rows.reduce((a, r) => a + r.sum, 0), missing: rows.some((r) => r.n > 0 && !r.rate) };
+}
+
+export const monthPrefixOf = (d = new Date()) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+
+export function PayrollCard({ teacher, slots, students, onSetRate }) {
+  const [edit, setEdit] = useState(false);
+  const [month, setMonth] = useState(0);
+  const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() + month);
+  const pr = teacherPayroll(teacher, slots, students, monthPrefixOf(d));
+  const rates = { ...DEFAULT_RATES, ...(teacher.rates || {}) };
+  return (
+    <div className="pay-card" onClick={(e) => e.stopPropagation()}>
+      <div className="row-gap" style={{ justifyContent: "space-between" }}>
+        <span className="pay-title">💰 {d.toLocaleDateString("ru-RU", { month: "long" })}: <b>{rub(pr.total)}</b></span>
+        <span className="row-gap">
+          <button className="btn-icon ghost" title="Предыдущий месяц" onClick={() => setMonth(month - 1)}>‹</button>
+          <button className="btn-icon ghost" title="Следующий месяц" disabled={month >= 0} onClick={() => setMonth(month + 1)}>›</button>
+        </span>
+      </div>
+      <div className="hint-text">{pr.lessons ? "Проведено " + lessonsWord(pr.lessons) : "Проведённых уроков нет"}{pr.missing ? " · ⚠️ не для всех форматов задана ставка" : ""}</div>
+      {pr.rows.filter((r) => r.n).map((r) => <div key={r.kind} className="pay-row"><span>{LESSON_KINDS[r.kind]}</span><span>{r.n} × {rub(r.rate)}</span><b>{rub(r.sum)}</b></div>)}
+      <button className="btn-small" style={{ marginTop: 6 }} onClick={() => setEdit((v) => !v)}>{edit ? "Готово" : "Ставки за урок"}</button>
+      {edit && (
+        <div className="pay-rates">
+          {Object.entries(LESSON_KINDS).map(([k, lbl]) => (
+            <label key={k} className="pay-row"><span>{lbl}</span><input type="number" min="0" step="50" className="mini-input" style={{ width: 100 }} value={rates[k] || ""} placeholder="0 ₽" onChange={(e) => onSetRate(teacher.id, k, Number(e.target.value) || 0)} /></label>
+          ))}
+          <div className="hint-text">За урок, в рублях. Пара и мини-группа оплачиваются один раз за занятие, а не за каждого ученика.</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export const PAY_CSS = `
+.pay-card { margin-top:10px; background:#f6f2ea; border-radius:14px; padding:10px 12px; cursor:default; }
+.pay-title { font-size:14px; }
+.pay-row { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:8px; align-items:center; font-size:12px; padding:3px 0; }
+.pay-rates { margin-top:6px; display:flex; flex-direction:column; gap:2px; }
+.pay-rates .pay-row { grid-template-columns:minmax(0,1fr) auto; }
+.slot-kind { font-size:11px; margin-right:3px; }
+`;
+
+
+/* ------------------- «Сам, но не один»: weeks and month check ------------------- */
+
+const MARKS = { weak: { icon: "🔴", label: "Тяжело" }, ok: { icon: "🟡", label: "Нормально" }, good: { icon: "🟢", label: "Отлично" } };
+const isoD = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+
+// Monday-based weeks that start in the given month.
+function weeksOfMonth(y, m) {
+  const first = new Date(y, m, 1);
+  const mon = new Date(first); mon.setDate(first.getDate() - ((first.getDay() + 6) % 7));
+  const out = [];
+  for (let d = new Date(mon); d.getMonth() <= m || d.getFullYear() < y; d.setDate(d.getDate() + 7)) {
+    const end = new Date(d); end.setDate(d.getDate() + 6);
+    if (end.getMonth() === m || d.getMonth() === m) out.push({ from: isoD(d), to: isoD(end), key: isoD(d) });
+    if (out.length > 5 || (d.getFullYear() > y)) break;
+  }
+  return out;
+}
+
+export function SelfMonthPanel({ student, slots, canEdit, actions }) {
+  const [shift, setShift] = useState(0);
+  const base = new Date(); base.setDate(1); base.setMonth(base.getMonth() + shift);
+  const y = base.getFullYear(), m = base.getMonth();
+  const monthKey = y + "-" + String(m + 1).padStart(2, "0");
+  const weeks = weeksOfMonth(y, m);
+  const notes = student.selfWeeks || {};
+  const [draft, setDraft] = useState({});
+  const check = (student.checkpoints || []).find((c) => c.monthKey === monthKey);
+  const [cf, setCf] = useState({ maxScore: "", achievedScore: "", note: "" });
+  const lastDay = new Date(y, m + 1, 0);
+  const t = today();
+  const marked = weeks.filter((w) => notes[w.key]?.mark).length;
+
+  return (
+    <div className="self-month">
+      <div className="row-gap" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
+        <div className="lib-title" style={{ fontSize: 16 }}>☂️ «Сам, но не один»: {base.toLocaleDateString("ru-RU", { month: "long", year: "numeric" })}</div>
+        <span className="row-gap">
+          <button className="btn-small" onClick={() => setShift(shift - 1)}>← Пред.</button>
+          <button className="btn-small" disabled={shift >= 0} onClick={() => setShift(shift + 1)}>След. →</button>
+        </span>
+      </div>
+      <div className="hint-text">Каждую неделю: урок → задание → письменный разбор → отметка прогресса недели. В конце месяца — контрольный срез. Отмечено недель: {marked} из {weeks.length}.</div>
+      <div className="sm-weeks">
+        {weeks.map((w, i) => {
+          const lesson = (slots || []).find((sl) => sl.studentId === student.id && sl.status !== "cancelled" && sl.date >= w.from && sl.date <= w.to);
+          const task = (student.homework || []).filter((h) => (h.createdAt || "") >= w.from && (h.createdAt || "") <= w.to)[0];
+          const n = notes[w.key] || {};
+          const future = w.from > t;
+          return (
+            <div key={w.key} className={"sm-week" + (future ? " future" : "")}>
+              <div className="sm-week-head">Неделя {i + 1} <span className="muted-text">· {fmtD(w.from)} – {fmtD(w.to)}</span></div>
+              <div className="sm-steps">
+                <span className={lesson && lesson.date < t ? "ok" : ""}>📅 {lesson ? "урок " + fmtD(lesson.date) + " " + lesson.time : "урока нет"}</span>
+                <span className={task && task.status !== "assigned" && task.status !== "not_done" ? "ok" : ""}>📝 {task ? (task.status === "assigned" ? "задание выдано" : task.status === "not_done" ? "задание не сделано" : task.status === "needs_revision" ? "на доработке" : "задание сдано") : "задания нет"}</span>
+                <span className={task?.status === "reviewed" ? "ok" : ""}>✍️ {task?.status === "reviewed" ? "разбор готов" : "разбор после сдачи"}</span>
+              </div>
+              {canEdit ? (
+                <div className="row-gap" style={{ flexWrap: "wrap", marginTop: 6 }}>
+                  <span className="hint-text">Прогресс недели:</span>
+                  {Object.entries(MARKS).map(([k, x]) => <button key={k} className={"btn-small" + (n.mark === k ? " accent" : "")} onClick={() => actions.setSelfWeek(student.id, w.key, { mark: k })}>{x.icon} {x.label}</button>)}
+                  <input className="mini-input wide" placeholder="Комментарий к неделе: что получилось, над чем работать" value={draft[w.key] ?? n.note ?? ""} onChange={(e) => setDraft({ ...draft, [w.key]: e.target.value })} onBlur={() => draft[w.key] !== undefined && actions.setSelfWeek(student.id, w.key, { note: draft[w.key] })} />
+                </div>
+              ) : (n.mark || n.note) ? (
+                <div className="sm-note">{n.mark ? MARKS[n.mark].icon + " " + MARKS[n.mark].label : ""}{n.note ? " — " + n.note : ""}</div>
+              ) : !future && <div className="hint-text">Преподаватель отметит прогресс недели после разбора.</div>}
+            </div>
+          );
+        })}
+      </div>
+      <div className={"sm-check" + (check ? " done" : "")}>
+        <div className="sm-week-head">📊 Контрольный срез месяца</div>
+        {check ? <>
+          <div><b>{check.achievedScore} / {check.maxScore}</b> · {fmtD(check.date)}{check.note ? " — " + check.note : ""}</div>
+          <div className="progress-track" style={{ marginTop: 6 }}><div className="progress-fill" style={{ width: Math.round(check.achievedScore / check.maxScore * 100) + "%" }} /></div>
+        </> : canEdit ? (
+          <div className="row-gap" style={{ flexWrap: "wrap" }}>
+            <input type="number" className="mini-input" style={{ width: 90 }} placeholder="Набрал(а)" value={cf.achievedScore} onChange={(e) => setCf({ ...cf, achievedScore: e.target.value })} />
+            <span className="hint-text">из</span>
+            <input type="number" className="mini-input" style={{ width: 90 }} placeholder="Максимум" value={cf.maxScore} onChange={(e) => setCf({ ...cf, maxScore: e.target.value })} />
+            <input className="mini-input wide" placeholder="Вывод: что подтянуть в следующем месяце" value={cf.note} onChange={(e) => setCf({ ...cf, note: e.target.value })} />
+            <button className="btn-small accent" disabled={!cf.maxScore || cf.achievedScore === ""} onClick={() => { actions.addCheckpoint(student.id, { title: "Срез за " + base.toLocaleDateString("ru-RU", { month: "long" }), maxScore: cf.maxScore, achievedScore: cf.achievedScore, note: cf.note, kind: "month", monthKey }); setCf({ maxScore: "", achievedScore: "", note: "" }); }}><Check size={13} /> Записать срез</button>
+          </div>
+        ) : <div className="hint-text">Срез пройдёт в конце месяца, ориентир — {fmtD(isoD(lastDay))}.</div>}
+      </div>
+    </div>
+  );
+}
+
+export const CHECK_KINDS = { check: "📝 Контрольный срез", month: "📊 Срез месяца", mock: "🎯 Пробный экзамен", diag: "🔎 Диагностика" };
+
+export const SELF_CSS = `
+.self-month { display:flex; flex-direction:column; gap:8px; background:#fff; border:1.5px solid var(--line, #e2dccf); border-radius:20px; padding:16px 18px; margin-bottom:14px; }
+.sm-weeks { display:flex; flex-direction:column; gap:8px; }
+.sm-week { background:#f6f2ea; border-radius:14px; padding:10px 12px; }
+.sm-week.future { opacity:.6; }
+.sm-week-head { font-weight:700; font-size:14px; margin-bottom:4px; }
+.sm-steps { display:flex; flex-wrap:wrap; gap:6px; font-size:12px; }
+.sm-steps span { background:#fff; border-radius:999px; padding:3px 10px; }
+.sm-steps span.ok { background:#e3efee; color:#2F6F73; font-weight:600; }
+.sm-note { font-size:13px; margin-top:6px; }
+.sm-check { background:#fbf1d3; border-radius:14px; padding:10px 12px; }
+.sm-check.done { background:#e3efee; }
+.ck-kind { font-size:11px; font-weight:600; background:#f3eee4; border-radius:999px; padding:1px 8px; margin-right:6px; }
+`;
+
+
+/* ------------------------- goal: start → now → result ------------------------- */
+
+export function GoalMarker({ student, levels }) {
+  const ex = student.examTarget?.exam ? student.examTarget : null;
+  const target = student.targetLevel || "";
+  const iS = levels.indexOf(student.startLevel), iC = levels.indexOf(student.currentLevel), iT = levels.indexOf(target);
+  const pct = iT > iS && iC >= iS ? Math.min(100, Math.round(((iC - iS) / (iT - iS)) * 100)) : null;
+  return (
+    <div className="goal-mk">
+      <div className="goal-step">
+        <div className="goal-lbl">🚩 Изначальная цель</div>
+        <div className="goal-val">{student.goal || "—"}</div>
+        <div className="goal-sub">Старт: {student.startLevel || "—"}{student.startNote ? " · " + student.startNote : ""}</div>
+      </div>
+      <div className="goal-arrow">→</div>
+      <div className="goal-step now">
+        <div className="goal-lbl">📍 Сейчас</div>
+        <div className="goal-val">{student.currentLevel || "—"}</div>
+        {pct !== null && <><div className="progress-track" style={{ marginTop: 6 }}><div className="progress-fill" style={{ width: pct + "%" }} /></div><div className="goal-sub">{pct}% пути до уровня-цели</div></>}
+      </div>
+      <div className="goal-arrow">→</div>
+      <div className="goal-step aim">
+        <div className="goal-lbl">🏁 Желаемый результат</div>
+        <div className="goal-val">{student.targetResult || (ex ? ex.exam + (ex.targetScore ? " на " + ex.targetScore : "") : "Преподаватель уточнит вместе с вами")}</div>
+        <div className="goal-sub">{[target && "Уровень-цель: " + target, ex?.examDate && "Экзамен: " + fmtD(ex.examDate)].filter(Boolean).join(" · ")}</div>
+      </div>
+    </div>
+  );
+}
+
+export const GOAL_CSS = `
+.goal-mk { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr); gap:10px; align-items:stretch; margin-bottom:14px; }
+.goal-step { background:#fff; border:1.5px solid var(--line, #e2dccf); border-radius:18px; padding:12px 14px; }
+.goal-step.now { border-color:var(--accent, #2F6F73); }
+.goal-step.aim { background:#fbf1d3; border-color:#efd88d; }
+.goal-lbl { font:700 11px var(--font-ui, sans-serif); text-transform:uppercase; letter-spacing:.05em; color:#6b6a63; margin-bottom:4px; }
+.goal-val { font:700 16px var(--font-display, serif); }
+.goal-sub { font-size:12px; color:#6b6a63; margin-top:4px; }
+.goal-arrow { align-self:center; font-size:20px; color:#8a887f; }
+@media (max-width: 900px) { .goal-mk { grid-template-columns:minmax(0,1fr); } .goal-arrow { transform:rotate(90deg); justify-self:center; } }
+`;
+export const EXTRA_CSS = EXTRA_CSS_BASE + FORMAT_CSS + LESSONS_CSS + CHARTS_CSS + PAY_CSS + SELF_CSS + GOAL_CSS;

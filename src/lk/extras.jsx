@@ -1309,9 +1309,9 @@ export function SelfMonthPanel({ student, slots, canEdit, actions }) {
           <div className="progress-track" style={{ marginTop: 6 }}><div className="progress-fill" style={{ width: Math.round(check.achievedScore / check.maxScore * 100) + "%" }} /></div>
         </> : canEdit ? (
           <div className="row-gap" style={{ flexWrap: "wrap" }}>
-            <input type="number" className="mini-input" style={{ width: 90 }} placeholder="Набрал(а)" value={cf.achievedScore} onChange={(e) => setCf({ ...cf, achievedScore: e.target.value })} />
+            <input type="number" className="mini-input" style={{ width: 120 }} placeholder="Набрал(а)" value={cf.achievedScore} onChange={(e) => setCf({ ...cf, achievedScore: e.target.value })} />
             <span className="hint-text">из</span>
-            <input type="number" className="mini-input" style={{ width: 90 }} placeholder="Максимум" value={cf.maxScore} onChange={(e) => setCf({ ...cf, maxScore: e.target.value })} />
+            <input type="number" className="mini-input" style={{ width: 120 }} placeholder="Максимум" value={cf.maxScore} onChange={(e) => setCf({ ...cf, maxScore: e.target.value })} />
             <input className="mini-input wide" placeholder="Вывод: что подтянуть в следующем месяце" value={cf.note} onChange={(e) => setCf({ ...cf, note: e.target.value })} />
             <button className="btn-small accent" disabled={!cf.maxScore || cf.achievedScore === ""} onClick={() => { actions.addCheckpoint(student.id, { title: "Срез за " + base.toLocaleDateString("ru-RU", { month: "long" }), maxScore: cf.maxScore, achievedScore: cf.achievedScore, note: cf.note, kind: "month", monthKey }); setCf({ maxScore: "", achievedScore: "", note: "" }); }}><Check size={13} /> Записать срез</button>
           </div>
@@ -1333,6 +1333,7 @@ export const SELF_CSS = `
 .sm-steps span { background:#fff; border-radius:999px; padding:3px 10px; }
 .sm-steps span.ok { background:#e3efee; color:#2F6F73; font-weight:600; }
 .sm-note { font-size:13px; margin-top:6px; }
+.self-kpis { display:flex; flex-wrap:wrap; gap:6px 18px; font-size:13px; margin:8px 0 4px; }
 .sm-check { background:#fbf1d3; border-radius:14px; padding:10px 12px; }
 .sm-check.done { background:#e3efee; }
 .ck-kind { font-size:11px; font-weight:600; background:#f3eee4; border-radius:999px; padding:1px 8px; margin-right:6px; }
@@ -1381,3 +1382,59 @@ export const GOAL_CSS = `
 @media (max-width: 900px) { .goal-mk { grid-template-columns:minmax(0,1fr); } .goal-arrow { transform:rotate(90deg); justify-self:center; } }
 `;
 export const EXTRA_CSS = EXTRA_CSS_BASE + FORMAT_CSS + LESSONS_CSS + CHARTS_CSS + PAY_CSS + SELF_CSS + GOAL_CSS;
+
+/* -------------------- «Сам, но не один»: admin section -------------------- */
+
+export function SelfOverviewPanel({ students, teachers, slots, subjectMeta, actions }) {
+  const list = students.filter((s) => formatOf(s) === "self");
+  const others = students.filter((s) => formatOf(s) !== "self" && !s.umbrellaId);
+  const [pick, setPick] = useState("");
+  const [open, setOpen] = useState(null);
+  const now = new Date();
+  const monthKey = monthPrefixOf(now);
+  const weeks = weeksOfMonth(now.getFullYear(), now.getMonth());
+  const t = today();
+  return (
+    <div className="lib">
+      <div className="row-gap" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
+        <div>
+          <h3 className="lib-title">☂️ «Сам, но не один»</h3>
+          <div className="hint-text">Абонемент на месяц: одно занятие в неделю (4 в месяц), между ними задание под пробелы и письменный разбор. Каждую неделю преподаватель отмечает прогресс, в конце месяца — контрольный срез. На сайте: языки 7 500 ₽, история и обществознание 6 900 ₽ в месяц.</div>
+        </div>
+        <div className="row-gap">
+          <select className="mini-select" value={pick} onChange={(e) => setPick(e.target.value)}>
+            <option value="">Подключить ученика…</option>
+            {others.map((s) => <option key={s.id} value={s.id}>{s.name} — {subjectMeta[teachers.find((x) => x.id === s.teacherId)?.subject]?.label}</option>)}
+          </select>
+          <button className="btn-small accent" disabled={!pick} onClick={() => { actions.startSelf(pick); setPick(""); }}><Plus size={13} /> Подключить</button>
+        </div>
+      </div>
+      {list.length === 0 && <div className="muted-text">На этом формате пока никого нет.</div>}
+      {list.map((s) => {
+        const te = teachers.find((x) => x.id === s.teacherId);
+        const done = (slots || []).filter((sl) => sl.studentId === s.id && sl.status !== "cancelled" && sl.date.startsWith(monthKey) && sl.date < t).length;
+        const marked = weeks.filter((w) => (s.selfWeeks || {})[w.key]?.mark).length;
+        const check = (s.checkpoints || []).find((c) => c.monthKey === monthKey);
+        const pk = packageStats(s, slots);
+        return (
+          <div key={s.id} className="um-card">
+            <div className="row-gap" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
+              <div><b style={{ fontSize: 16 }}>{s.name}</b> <span className="muted-text">· {subjectMeta[te?.subject]?.emoji} {subjectMeta[te?.subject]?.label} · {te?.name}</span></div>
+              <div className="row-gap">
+                <button className="btn-small" title="Новый месяц: абонемент на 4 занятия" onClick={() => actions.renewSelf(s.id)}>Продлить на месяц</button>
+                <button className="btn-small" onClick={() => setOpen(open === s.id ? null : s.id)}>{open === s.id ? "Свернуть" : "Недели и срез"}</button>
+              </div>
+            </div>
+            <div className="self-kpis">
+              <span>📅 Занятий в этом месяце: <b>{done} из 4</b></span>
+              <span>🟢 Отмечено недель: <b>{marked} из {weeks.length}</b></span>
+              <span>📊 Срез месяца: <b>{check ? check.achievedScore + " / " + check.maxScore : "ещё не было"}</b></span>
+              <span>☂️ Абонемент: <b>{pk.total ? "осталось " + pk.left + " из " + pk.total : "не оформлен"}</b></span>
+            </div>
+            {open === s.id && <SelfMonthPanel student={s} slots={slots} canEdit={true} actions={actions} />}
+          </div>
+        );
+      })}
+    </div>
+  );
+}

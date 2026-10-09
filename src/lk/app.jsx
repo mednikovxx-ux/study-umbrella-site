@@ -7,7 +7,7 @@ import {
 
 import { storage } from "./storage.js";
 import AdminAccess from "./admin-access.jsx";
-import { kindForStudent, GoalMarker, CHECK_KINDS, SelfMonthPanel, LESSON_KINDS, PayrollCard, slotKind, teacherPayroll, UmbrellaPanel, umbrellaOf, UMBRELLA_PRICES, AdminInbox, CallAdminButton, EmojiPicker, EXTRA_CSS, FormatBadge, FormatPanel, GroupsPanel, LibraryPanel, PayRequestModal, ProgramEditor, ProgressCharts, QUICK_REACTIONS, StudentLessons, StudentOverview, CHANGE_DEADLINE_H, PAY_DEADLINE_H, seedLibrary, withPackagePaid } from "./extras.jsx";
+import { SelfOverviewPanel, kindForStudent, GoalMarker, CHECK_KINDS, SelfMonthPanel, LESSON_KINDS, PayrollCard, slotKind, teacherPayroll, UmbrellaPanel, umbrellaOf, UMBRELLA_PRICES, AdminInbox, CallAdminButton, EmojiPicker, EXTRA_CSS, FormatBadge, FormatPanel, GroupsPanel, LibraryPanel, PayRequestModal, ProgramEditor, ProgressCharts, QUICK_REACTIONS, StudentLessons, StudentOverview, CHANGE_DEADLINE_H, PAY_DEADLINE_H, seedLibrary, withPackagePaid } from "./extras.jsx";
 const LOGO_DATA_URI = "/img/logo.png";
 
 /* ----------------------------- helpers ----------------------------- */
@@ -2766,6 +2766,7 @@ function AdminView({ department, teachers, students, schedule, sales, products, 
         <button className={tab === "schedule" ? "tab active" : "tab"} onClick={() => setTab("schedule")}><Calendar size={13} /> Общее расписание</button>
         <button className={tab === "roster" ? "tab active" : "tab"} onClick={() => setTab("roster")}><GraduationCap size={13} /> Ученики школы</button>
         <button className={tab === "groups" ? "tab active" : "tab"} onClick={() => setTab("groups")}><Users size={13} /> Пары и группы</button>
+        <button className={tab === "self" ? "tab active" : "tab"} onClick={() => setTab("self")}>☂️ Сам, но не один</button>
         <button className={tab === "umbrella" ? "tab active" : "tab"} onClick={() => setTab("umbrella")}>🌂 Под одним зонтом</button>
         <button className={tab === "library" ? "tab active" : "tab"} onClick={() => setTab("library")}><BookOpen size={13} /> Материалы</button>
         <button className={tab === "sales" ? "tab active" : "tab"} onClick={() => setTab("sales")}><ShoppingBag size={13} /> Магазин</button>
@@ -2774,6 +2775,11 @@ function AdminView({ department, teachers, students, schedule, sales, products, 
         </button>
       </div>
 
+      {tab === "self" && (
+        <div className="card">
+          <SelfOverviewPanel students={students} teachers={teachers} slots={schedule} subjectMeta={SUBJECTS} actions={actions} />
+        </div>
+      )}
       {tab === "umbrella" && (
         <div className="card">
           <UmbrellaPanel umbrellas={ext.umbrellas} students={students} teachers={teachers} slots={schedule} subjectMeta={SUBJECTS} actions={actions} />
@@ -3688,6 +3694,13 @@ export default function App({ session, onLogout }) {
     updateTopic: (studentId, kind, topicId, patch) => saveStudents(students.map((s) => s.id === studentId ? { ...s, [kind]: s[kind].map((t) => (t.id === topicId ? { ...t, ...patch } : t)) } : s)),
     setHomeworkStatus: (studentId, hwId, status, feedback) => saveStudents(students.map((s) => s.id === studentId ? { ...s, homework: (s.homework || []).map((h) => h.id === hwId ? { ...h, status, feedback: (feedback ?? "").trim() ? feedback.trim() : h.feedback || "", reviewedAt: status === "reviewed" ? new Date().toISOString() : h.reviewedAt } : h) } : s)),
     removeHomework: (studentId, hwId) => saveStudents(students.map((s) => s.id === studentId ? { ...s, homework: (s.homework || []).filter((h) => h.id !== hwId) } : s)),
+    // «Сам, но не один»: the format plus a month subscription of 4 lessons.
+    startSelf: (studentId) => {
+      const now = Date.now();
+      saveStudents(students.map((s) => (s.id === studentId ? { ...s, format: "self", planType: "package", packageProductId: null, packageTotal: 4, packageAssignedAt: isoDate(0), packageLabel: "«Сам, но не один»: абонемент на месяц, 4 занятия" } : s)));
+      saveSchedule(schedule.map((sl) => (sl.studentId === studentId && !sl.groupId && sl.type !== "trial" && new Date(sl.date + "T" + sl.time + ":00").getTime() > now ? { ...sl, format: "self" } : sl)));
+    },
+    renewSelf: (studentId) => saveStudents(students.map((s) => (s.id === studentId ? { ...s, packageTotal: 4, packageAssignedAt: isoDate(0), packageLabel: "«Сам, но не один»: абонемент на месяц, 4 занятия" } : s))),
     setFormat: (studentId, format) => {
       saveStudents(students.map((s) => (s.id === studentId ? { ...s, format } : s)));
       const now = Date.now();

@@ -7,7 +7,7 @@ import {
 
 import { storage } from "./storage.js";
 import AdminAccess from "./admin-access.jsx";
-import { GoalMarker, CHECK_KINDS, SelfMonthPanel, LESSON_KINDS, PayrollCard, slotKind, teacherPayroll, UmbrellaPanel, umbrellaOf, UMBRELLA_PRICES, AdminInbox, CallAdminButton, EmojiPicker, EXTRA_CSS, FormatBadge, FormatPanel, GroupsPanel, LibraryPanel, PayRequestModal, ProgramEditor, ProgressCharts, QUICK_REACTIONS, StudentLessons, StudentOverview, CHANGE_DEADLINE_H, PAY_DEADLINE_H, seedLibrary, withPackagePaid } from "./extras.jsx";
+import { kindForStudent, GoalMarker, CHECK_KINDS, SelfMonthPanel, LESSON_KINDS, PayrollCard, slotKind, teacherPayroll, UmbrellaPanel, umbrellaOf, UMBRELLA_PRICES, AdminInbox, CallAdminButton, EmojiPicker, EXTRA_CSS, FormatBadge, FormatPanel, GroupsPanel, LibraryPanel, PayRequestModal, ProgramEditor, ProgressCharts, QUICK_REACTIONS, StudentLessons, StudentOverview, CHANGE_DEADLINE_H, PAY_DEADLINE_H, seedLibrary, withPackagePaid } from "./extras.jsx";
 const LOGO_DATA_URI = "/img/logo.png";
 
 /* ----------------------------- helpers ----------------------------- */
@@ -3473,8 +3473,10 @@ export default function App({ session, onLogout }) {
       const s = (sRes.value || seedStudents).map(normalizeStudent);
       // Every lesson keeps the format it was given in; old ones get it from the student once.
       const sch0 = (schRes.value || seedSchedule).map(normalizeSlot);
-      const schNeedsFormat = sch0.some((sl) => !sl.format && (sl.studentId || sl.trialName));
-      const sch = sch0.map((sl) => (sl.format || !(sl.studentId || sl.trialName) ? sl : { ...sl, format: slotKind(sl, s) }));
+      // One-on-one lessons of students with a package go at the package rate (unless set by hand).
+      const toPackage = (sl) => sl.format === "individual" && !sl.formatSet && s.find((x) => x.id === sl.studentId)?.packageTotal;
+      const schNeedsFormat = sch0.some((sl) => (!sl.format && (sl.studentId || sl.trialName)) || toPackage(sl));
+      const sch = sch0.map((sl) => (toPackage(sl) ? { ...sl, format: "package" } : sl.format || !(sl.studentId || sl.trialName) ? sl : { ...sl, format: slotKind(sl, s) }));
       const sal = salRes.value || seedSales;
       const prod = (prodRes.value || seedProducts).map(normalizeProduct);
       const disc = discRes.value !== null ? discRes.value : seedDiscountPercent;
@@ -3595,6 +3597,9 @@ export default function App({ session, onLogout }) {
         note("✅ Оплата получена: " + r.label + ". Ссылка на урок открыта в разделе «Занятия».");
         return;
       }
+      // From now on this student's one-on-one lessons go at the package rate.
+      const nowMs = Date.now();
+      if (!r.slotId) saveSchedule(schedule.map((sl) => (sl.studentId === r.studentId && sl.format === "individual" && !sl.formatSet && new Date(sl.date + "T" + sl.time + ":00").getTime() > nowMs ? { ...sl, format: "package" } : sl)));
       const umb = umbrellas.find((u) => (u.memberIds || []).includes(r.studentId));
       if (umb) {
         const used = schedule.filter((sl) => umb.memberIds.includes(sl.studentId) && sl.type === "regular" && sl.status !== "cancelled" && sl.date < isoDate(0) && (!umb.assignedAt || sl.date >= umb.assignedAt)).length;
@@ -3686,7 +3691,9 @@ export default function App({ session, onLogout }) {
     setFormat: (studentId, format) => {
       saveStudents(students.map((s) => (s.id === studentId ? { ...s, format } : s)));
       const now = Date.now();
-      saveSchedule(schedule.map((sl) => (sl.studentId === studentId && !sl.groupId && sl.type !== "trial" && new Date(sl.date + "T" + sl.time + ":00").getTime() > now ? { ...sl, format } : sl)));
+      const st = students.find((x) => x.id === studentId);
+      const kind = kindForStudent({ ...st, format });
+      saveSchedule(schedule.map((sl) => (sl.studentId === studentId && !sl.groupId && sl.type !== "trial" && new Date(sl.date + "T" + sl.time + ":00").getTime() > now ? { ...sl, format: kind } : sl)));
     },
     // «Под одним зонтом»: one package, a student card per subject (each with its own teacher).
     createUmbrella: ({ baseId, name, contact, total, rows }) => {
@@ -3806,7 +3813,7 @@ export default function App({ session, onLogout }) {
     addSlot: (teacherId, { date, time, duration, type, studentId, trialName }) => {
       saveSchedule([...schedule, {
         id: uid("sl"), teacherId, studentId: studentId || null, trialName: trialName || "", date, time, duration, type,
-        format: type === "trial" ? "trial" : (students.find((x) => x.id === studentId)?.format || "individual"),
+        format: type === "trial" ? "trial" : kindForStudent(students.find((x) => x.id === studentId)),
         status: (studentId || trialName) ? "booked" : "available",
         requested: null, history: [], topicsCovered: [], lessonMaterial: "", paid: false, meetingLink: "", paymentRequest: null,
       }]);
@@ -3827,7 +3834,7 @@ export default function App({ session, onLogout }) {
     },
     cancelSlot: (slotId) => saveSchedule(schedule.map((sl) => sl.id === slotId ? { ...sl, status: "cancelled" } : sl)),
     rescheduleSlot: (slotId, newDate, newTime) => saveSchedule(schedule.map((sl) => sl.id === slotId ? { ...sl, history: [...sl.history, { date: sl.date, time: sl.time }], date: newDate, time: newTime, requested: null, status: "booked" } : sl)),
-    updateSlotDetails: (slotId, { duration, type, trialName, format, isCheck }) => saveSchedule(schedule.map((sl) => sl.id === slotId ? { ...sl, duration, type, trialName: trialName || "", ...(format ? { format } : {}), isCheck: !!isCheck } : sl)),
+    updateSlotDetails: (slotId, { duration, type, trialName, format, isCheck }) => saveSchedule(schedule.map((sl) => sl.id === slotId ? { ...sl, duration, type, trialName: trialName || "", ...(format ? { format, formatSet: true } : {}), isCheck: !!isCheck } : sl)),
     addSlotTopic: (slotId, name) => saveSchedule(schedule.map((sl) => sl.id === slotId ? { ...sl, topicsCovered: [...(sl.topicsCovered || []), name] } : sl)),
     removeSlotTopic: (slotId, name) => saveSchedule(schedule.map((sl) => sl.id === slotId ? { ...sl, topicsCovered: (sl.topicsCovered || []).filter((n) => n !== name) } : sl)),
     setSlotMaterial: (slotId, text) => saveSchedule(schedule.map((sl) => sl.id === slotId ? { ...sl, lessonMaterial: text } : sl)),

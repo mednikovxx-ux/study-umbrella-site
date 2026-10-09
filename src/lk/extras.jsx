@@ -1154,16 +1154,19 @@ export const CHARTS_CSS = `
 
 // Lesson kinds the school pays differently for. A group or pair lesson is paid once, not per student.
 export const LESSON_KINDS = {
-  individual: "👤 Индивидуальный",
+  individual: "👤 Индивидуальный разовый",
+  package: "📦 Индивидуальный из пакета",
   self: "☂️ «Сам, но не один»",
   umbrella: "🌂 «Под одним зонтом»",
   pair: "👥 Пара",
   group: "👨‍👩‍👧 Мини-группа",
   trial: "🎓 Пробный",
 };
-export const DEFAULT_RATES = { individual: 0, self: 0, umbrella: 0, pair: 0, group: 0, trial: 0 };
+export const DEFAULT_RATES = { individual: 0, package: 0, self: 0, umbrella: 0, pair: 0, group: 0, trial: 0 };
+// One-on-one lessons of a student with a package are paid at the package rate.
+export const kindForStudent = (st) => { const f = formatOf(st || {}); return f === "individual" && st?.packageTotal ? "package" : f; };
 
-export const slotKind = (sl, students) => sl.format || (sl.type === "trial" ? "trial" : sl.groupId ? ((students || []).find((s) => s.id === sl.studentId)?.format === "pair" ? "pair" : "group") : formatOf((students || []).find((s) => s.id === sl.studentId) || {}));
+export const slotKind = (sl, students) => sl.format || (sl.type === "trial" ? "trial" : sl.groupId ? ((students || []).find((s) => s.id === sl.studentId)?.format === "pair" ? "pair" : "group") : kindForStudent((students || []).find((s) => s.id === sl.studentId)));
 
 // Lessons that already took place in the month; one group lesson counts once.
 export function teacherPayroll(teacher, slots, students, monthPrefix) {
@@ -1184,37 +1187,44 @@ export function teacherPayroll(teacher, slots, students, monthPrefix) {
 export const monthPrefixOf = (d = new Date()) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
 
 export function PayrollCard({ teacher, slots, students, onSetRate }) {
-  const [edit, setEdit] = useState(false);
   const [month, setMonth] = useState(0);
   const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() + month);
   const pr = teacherPayroll(teacher, slots, students, monthPrefixOf(d));
   const rates = { ...DEFAULT_RATES, ...(teacher.rates || {}) };
+  const noRates = !Object.values(teacher.rates || {}).some(Boolean);
   return (
-    <div className="pay-card" onClick={(e) => e.stopPropagation()}>
-      <div className="row-gap" style={{ justifyContent: "space-between" }}>
-        <span className="pay-title">💰 {d.toLocaleDateString("ru-RU", { month: "long" })}: <b>{rub(pr.total)}</b></span>
+    <details className="pay-card" onClick={(e) => e.stopPropagation()}>
+      <summary>
+        <span>💰 {d.toLocaleDateString("ru-RU", { month: "long" })}: <b>{rub(pr.total)}</b></span>
+        <span className="muted-text">{pr.lessons ? lessonsWord(pr.lessons) : "уроков нет"}{noRates ? " · ставки не заданы" : pr.missing ? " · ⚠️" : ""}</span>
+      </summary>
+      <div className="row-gap" style={{ justifyContent: "space-between", margin: "6px 0 2px" }}>
+        <span className="hint-text">Месяц</span>
         <span className="row-gap">
           <button className="btn-icon ghost" title="Предыдущий месяц" onClick={() => setMonth(month - 1)}>‹</button>
           <button className="btn-icon ghost" title="Следующий месяц" disabled={month >= 0} onClick={() => setMonth(month + 1)}>›</button>
         </span>
       </div>
-      <div className="hint-text">{pr.lessons ? "Проведено " + lessonsWord(pr.lessons) : "Проведённых уроков нет"}{pr.missing ? " · ⚠️ не для всех форматов задана ставка" : ""}</div>
       {pr.rows.filter((r) => r.n).map((r) => <div key={r.kind} className="pay-row"><span>{LESSON_KINDS[r.kind]}</span><span>{r.n} × {rub(r.rate)}</span><b>{rub(r.sum)}</b></div>)}
-      <button className="btn-small" style={{ marginTop: 6 }} onClick={() => setEdit((v) => !v)}>{edit ? "Готово" : "Ставки за урок"}</button>
-      {edit && (
-        <div className="pay-rates">
-          {Object.entries(LESSON_KINDS).map(([k, lbl]) => (
-            <label key={k} className="pay-row"><span>{lbl}</span><input type="number" min="0" step="50" className="mini-input" style={{ width: 100 }} value={rates[k] || ""} placeholder="0 ₽" onChange={(e) => onSetRate(teacher.id, k, Number(e.target.value) || 0)} /></label>
-          ))}
-          <div className="hint-text">За урок, в рублях. Пара и мини-группа оплачиваются один раз за занятие, а не за каждого ученика.</div>
-        </div>
-      )}
-    </div>
+      {pr.missing && <div className="hint-text">⚠️ Для некоторых проведённых уроков ставка не задана.</div>}
+      <div className="pay-sub">Ставки за урок</div>
+      <div className="pay-rates">
+        {Object.entries(LESSON_KINDS).map(([k, lbl]) => (
+          <label key={k} className="pay-row"><span>{lbl}</span><input type="number" min="0" step="50" className="mini-input" style={{ width: 96 }} value={rates[k] || ""} placeholder="0 ₽" onChange={(e) => onSetRate(teacher.id, k, Number(e.target.value) || 0)} /></label>
+        ))}
+        <div className="hint-text">В рублях за урок. «Из пакета» — индивидуальные уроки ученика с оплаченным пакетом. Пара и мини-группа оплачиваются один раз за занятие.</div>
+      </div>
+    </details>
   );
 }
 
 export const PAY_CSS = `
-.pay-card { margin-top:10px; background:#f6f2ea; border-radius:14px; padding:10px 12px; cursor:default; }
+.pay-card { margin-top:10px; background:#f6f2ea; border-radius:12px; padding:8px 12px; cursor:default; }
+.pay-card summary { cursor:pointer; display:flex; flex-wrap:wrap; justify-content:space-between; gap:4px 8px; font-size:13px; list-style:none; }
+.pay-card summary::-webkit-details-marker { display:none; }
+.pay-card summary::after { content:"▾"; color:#8a887f; }
+.pay-card[open] summary::after { content:"▴"; }
+.pay-sub { font:700 11px var(--font-ui, sans-serif); text-transform:uppercase; letter-spacing:.05em; color:#6b6a63; margin-top:8px; }
 .pay-title { font-size:14px; }
 .pay-row { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:8px; align-items:center; font-size:12px; padding:3px 0; }
 .pay-rates { margin-top:6px; display:flex; flex-direction:column; gap:2px; }

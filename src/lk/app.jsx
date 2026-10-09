@@ -7,7 +7,7 @@ import {
 
 import { storage } from "./storage.js";
 import AdminAccess from "./admin-access.jsx";
-import { AdminInbox, CallAdminButton, EmojiPicker, EXTRA_CSS, LibraryPanel, PayRequestModal, QUICK_REACTIONS, StudentOverview, seedLibrary } from "./extras.jsx";
+import { AdminInbox, CallAdminButton, EmojiPicker, EXTRA_CSS, FormatBadge, FormatPanel, GroupsPanel, LibraryPanel, PayRequestModal, ProgramEditor, ProgressCharts, QUICK_REACTIONS, StudentLessons, StudentOverview, CHANGE_DEADLINE_H, PAY_DEADLINE_H, seedLibrary, withPackagePaid } from "./extras.jsx";
 const LOGO_DATA_URI = "/img/logo.png";
 
 /* ----------------------------- helpers ----------------------------- */
@@ -279,15 +279,17 @@ function genTimeOptions() {
 const TIME_OPTIONS = genTimeOptions();
 
 const HOMEWORK_STATUS_LABELS = {
-  assigned: "Не выполнено",
-  submitted: "В процессе",
-  in_review: "В процессе",
-  needs_revision: "Не выполнено",
-  reviewed: "Проверено",
+  assigned: "Задано",
+  submitted: "Сдано, ждёт проверки",
+  in_review: "На проверке",
+  needs_revision: "На доработке",
+  reviewed: "Проверено ✓",
+  not_done: "Не выполнено",
 };
 
 const HOMEWORK_STATUS_TONE = {
-  assigned: "danger",
+  not_done: "danger",
+  assigned: "default",
   submitted: "gold",
   in_review: "gold",
   needs_revision: "danger",
@@ -296,13 +298,14 @@ const HOMEWORK_STATUS_TONE = {
 
 const PLAN_LABELS = { individual: "Индивидуальный план", package: "Пакет занятий" };
 
+// International exams first, then the Russian school ones where they exist.
 const EXAM_OPTIONS = {
-  english: ["IELTS", "TOEFL", "CAE", "ОГЭ", "ЕГЭ"],
+  english: ["IELTS", "TOEFL", "Cambridge B2 First (FCE)", "CAE", "ОГЭ", "ЕГЭ"],
   spanish: ["DELE", "SIELE", "ОГЭ", "ЕГЭ"],
-  chinese: ["HSK", "ЕГЭ"],
+  chinese: ["HSK", "ОГЭ", "ЕГЭ"],
   korean: ["TOPIK"],
-  italian: ["CILS", "CELI"],
-  turkish: ["TÖMER"],
+  italian: ["CILS", "CELI", "PLIDA"],
+  turkish: ["TYS (Yunus Emre)", "TÖMER"],
   history: ["ОГЭ", "ЕГЭ"],
   social: ["ОГЭ", "ЕГЭ"],
   russian: ["ОГЭ", "ЕГЭ"],
@@ -311,6 +314,12 @@ const EXAM_OPTIONS = {
 const EXAM_TASK_BANK = {
   IELTS: ["Reading: True/False/Not Given", "Writing Task 1 (график/диаграмма)", "Writing Task 2 (эссе)", "Speaking Part 2 (монолог)", "Listening: Multiple choice"],
   TOEFL: ["Reading: Vocabulary in context", "Integrated Writing", "Independent Writing", "Speaking: Independent task", "Listening: Lectures"],
+  "Cambridge B2 First (FCE)": ["Reading and Use of English Parts 1–7", "Writing: Essay", "Writing: Article/Email/Review", "Listening Parts 1–4", "Speaking Parts 1–4"],
+  CILS: ["Ascolto", "Comprensione della lettura", "Analisi delle strutture di comunicazione", "Produzione scritta", "Produzione orale"],
+  CELI: ["Comprensione della lettura", "Produzione di testi scritti", "Competenza linguistica", "Comprensione dell'ascolto", "Produzione orale"],
+  PLIDA: ["Ascoltare", "Leggere", "Scrivere", "Parlare"],
+  "TYS (Yunus Emre)": ["Okuma (чтение)", "Dinleme (аудирование)", "Yazma (письмо)", "Konuşma (говорение)"],
+  "TÖMER": ["Okuma (чтение)", "Dinleme (аудирование)", "Yazma (письмо)", "Konuşma (говорение)", "Dil bilgisi (грамматика)"],
   CAE: ["Reading Use of English Parts 5–8", "Writing: Essay", "Writing: Report/Review", "Speaking Part 3 (дискуссия)"],
   DELE: ["Comprensión de lectura", "Comprensión auditiva", "Expresión e interacción escritas", "Expresión e interacción orales"],
   SIELE: ["Comprensión de lectura", "Comprensión auditiva", "Producción escrita", "Producción oral"],
@@ -385,8 +394,12 @@ const seedStudents = [
       { id: uid("hw"), title: "Задание 25: обоснование + 3 примера", material: "Тема «Право». Обоснуйте необходимость… и приведите три примера.", materialAttachment: null, dueDate: isoDate(2), status: "assigned", submissionText: "", submissionAttachment: null, submittedAt: null, feedback: "", createdAt: isoDate(-1) },
     ],
     messages: [{ id: uid("msg"), sender: "teacher", text: "Маша, добавил задание 25 — разберём в понедельник.", attachment: null, reactions: {}, at: new Date(Date.now() - 3600 * 1000 * 5).toISOString() }],
-    packageProductId: "p_so12", packageTotal: 12, packageAssignedAt: isoDate(-30), packageLabel: "Пакет: 12 занятий", checkpoints: [{ id: uid("chk"), title: "Пробный вариант ЕГЭ №2", date: isoDate(-6), maxScore: 100, achievedScore: 68, note: "Первая часть почти без ошибок, задания 24–25 — подтянуть" }],
-    examTarget: { exam: "ЕГЭ", targetScore: "85", examDate: "" }, examGrammar: [], examVocab: [], examTopics: [], examMaterials: [],
+    packageProductId: "p_so12", packageTotal: 12, packageAssignedAt: isoDate(-30), packageLabel: "Пакет: 12 занятий", checkpoints: [
+      { id: uid("chk"), title: "Входная диагностика", date: isoDate(-40), maxScore: 100, achievedScore: 52, note: "Слабые места: право и экономика" },
+      { id: uid("chk"), title: "Пробный вариант ЕГЭ №1", date: isoDate(-21), maxScore: 100, achievedScore: 61, note: "" },
+      { id: uid("chk"), title: "Пробный вариант ЕГЭ №2", date: isoDate(-6), maxScore: 100, achievedScore: 68, note: "Первая часть почти без ошибок, задания 24–25 — подтянуть" },
+    ],
+    examTarget: { exam: "ЕГЭ", targetScore: "85", examDate: "2027-06-01" }, examGrammar: [], examVocab: [], examTopics: [], examMaterials: [],
     canRequestTeacherChange: true, teacherChangeRequest: null, pageTheme: { bannerColor: "", bannerEmoji: "⚖️", accentColor: "", stickers: ["⭐"] },
   },
   {
@@ -796,7 +809,7 @@ function HomeworkPanel({ student, actions, role, canAct }) {
 
             {role === "student" && (
               <div style={{ marginTop: 8 }}>
-                {(hw.status === "assigned" || hw.status === "needs_revision") ? (
+                {(hw.status === "assigned" || hw.status === "needs_revision" || hw.status === "not_done") ? (
                   <>
                     {hw.status === "needs_revision" && hw.feedback && (
                       <div className="hw-feedback" style={{ marginBottom: 6 }}><strong>Замечания учителя:</strong> {hw.feedback}</div>
@@ -875,7 +888,20 @@ function HomeworkPanel({ student, actions, role, canAct }) {
                     )}
                   </div>
                 ) : (
-                  <span className="muted-text">Ученик ещё не отправил ответ</span>
+                  <span className="muted-text">Ученик ещё не отправил ответ в кабинет</span>
+                )}
+                {canAct && (
+                  <div className="hw-status-bar">
+                    <span className="hint-text">Статус:</span>
+                    {[["reviewed", "✓ Проверено"], ["needs_revision", "↩ На доработку"], ["not_done", "✗ Не выполнено"], ["assigned", "Задано"]].map(([st, lbl]) => (
+                      <button key={st} className={"btn-small" + (hw.status === st ? " accent" : "")} disabled={st === "needs_revision" && !(feedbackDrafts[hw.id] || hw.feedback || "").trim()} title={st === "needs_revision" ? "Напишите замечания в поле комментария" : ""}
+                        onClick={() => actions.setHomeworkStatus(student.id, hw.id, st, feedbackDrafts[hw.id])}>{lbl}</button>
+                    ))}
+                    {!(hw.submissionText || hw.submissionAttachment) && (
+                      <input className="mini-input wide" placeholder="Комментарий ученику (нужен для «На доработку»)" value={feedbackDrafts[hw.id] ?? ""} onChange={(e) => setFeedbackDrafts({ ...feedbackDrafts, [hw.id]: e.target.value })} />
+                    )}
+                    <button className="btn-icon ghost" title="Удалить задание" onClick={() => { if (window.confirm("Удалить задание «" + hw.title + "»?")) actions.removeHomework(student.id, hw.id); }}><Trash2 size={13} /></button>
+                  </div>
                 )}
               </div>
             )}
@@ -1300,7 +1326,7 @@ function SlotRow({ slot, students, readOnly, onAssign, onCancel, onReschedule, o
         </div>
       )}
 
-      {readOnly && slot.status === "booked" && onRequestReschedule && !asking && new Date(slot.date) >= new Date(isoDate(0)) && (
+      {readOnly && slot.status === "booked" && onRequestReschedule && !asking && (new Date(slot.date + "T" + slot.time + ":00").getTime() - Date.now()) / 36e5 > CHANGE_DEADLINE_H && (
         <div className="slot-actions">
           <button className="btn-small" onClick={() => setAsking(true)}><RotateCcw size={12} /> Предложить перенос</button>
         </div>
@@ -1506,7 +1532,13 @@ function ScheduleTable({ slots, students, teacherId, teacherOptions, teachersByI
   }
 
   function cellSlots(dateIso, hour) {
-    return weekSlots.filter((sl) => sl.date === dateIso && sl.time.slice(0, 2) === hour.slice(0, 2));
+    const seen = new Set();
+    return weekSlots.filter((sl) => sl.date === dateIso && sl.time.slice(0, 2) === hour.slice(0, 2)).filter((sl) => {
+      if (!sl.groupId) return true;
+      const k = sl.groupId + sl.date + sl.time;
+      if (seen.has(k)) return false;
+      seen.add(k); return true;
+    });
   }
 
   function openAdd(dateIso, hour) {
@@ -1556,7 +1588,7 @@ function ScheduleTable({ slots, students, teacherId, teacherOptions, teachersByI
                   >
                     {cs.map((sl) => {
                       const t = teachersById ? teachersById[sl.teacherId] : null;
-                      const who = sl.status === "available" ? (sl.type === "trial" ? "Пробный" : "Свободно") : (studentsFor(sl.teacherId).find((s) => s.id === sl.studentId)?.name || sl.trialName || "—");
+                      const who = sl.groupName ? "👥 " + sl.groupName : sl.status === "available" ? (sl.type === "trial" ? "Пробный" : "Свободно") : (studentsFor(sl.teacherId).find((s) => s.id === sl.studentId)?.name || sl.trialName || "—");
                       return (
                         <button
                           key={sl.id}
@@ -1643,7 +1675,7 @@ function ScheduleTable({ slots, students, teacherId, teacherOptions, teachersByI
             onTogglePaid={actions.toggleSlotPaid}
             onSetMeetingLink={actions.setMeetingLink}
             onSetSlotPaymentLink={actions.setSlotPaymentLink}
-            onPayForSlot={mode === "student" ? actions.payForSlot : undefined}
+            onPayForSlot={undefined}
             onConfirmPayment={actions.confirmPayment}
             onDismissPaymentRequest={actions.dismissPaymentRequest}
             onEditDetails={editable ? actions.updateSlotDetails : undefined}
@@ -1726,6 +1758,7 @@ function PackageTracker({ student, actions, canEdit, products, slots, subject })
           <div className="package-quick-picks">
             <button className={"btn-small" + (isIndividual ? " accent" : "")} onClick={pickIndividual}>Индивидуальный план</button>
             {PRESETS.map((n) => <button key={n} className={"btn-small" + (isPreset(n) ? " accent" : "")} onClick={() => pickStandard(n)}>Пакет на {n} занятий</button>)}
+            {student.format === "self" && <button className="btn-small" onClick={() => { actions.setPackagePlan(student.id, { packageProductId: null, packageTotal: 4, packageLabel: "«Сам, но не один»: абонемент на месяц, 4 занятия" }); setExpanded(false); }}>☂️ Абонемент на месяц (4 занятия)</button>}
             <button className={"btn-small" + (customOpen || isCustomActive ? " accent" : "")} onClick={() => setCustomOpen((v) => !v)}>Свой вариант</button>
           </div>
           {customOpen && (
@@ -1973,8 +2006,12 @@ function GoalPanel({ student, subject, canEdit, actions }) {
       <div className="field-label">Цель обучения</div>
       {canEdit && (
         <div className="goal-type-switch">
-          <button className={"btn-small" + (!isExam ? " accent" : "")} onClick={() => actions.setExamTarget(student.id, null)}>Для себя / путешествия / иммиграция</button>
-          <button className={"btn-small" + (isExam ? " accent" : "")} onClick={() => actions.setExamTarget(student.id, { exam: examOptions[0], targetScore: "", examDate: "" })}>🎯 Подготовка к экзамену</button>
+          <button className={"btn-small" + (!isExam ? " accent" : "")} onClick={() => actions.setExamTarget(student.id, null)}>📘 Базовая программа{SUBJECTS[subject]?.dept === "language" ? " (для себя, работы, переезда)" : ""}</button>
+          {SUBJECTS[subject]?.dept === "humanities" ? ["ОГЭ", "ЕГЭ"].map((ex) => (
+            <button key={ex} className={"btn-small" + (isExam && student.examTarget.exam === ex ? " accent" : "")} onClick={() => actions.setExamTarget(student.id, { ...(student.examTarget || { targetScore: "", examDate: "" }), exam: ex })}>🎯 {ex}</button>
+          )) : (
+            <button className={"btn-small" + (isExam ? " accent" : "")} onClick={() => actions.setExamTarget(student.id, { exam: examOptions[0], targetScore: "", examDate: "" })}>🎯 Международный экзамен</button>
+          )}
         </div>
       )}
 
@@ -2122,6 +2159,7 @@ function TeacherView({ teacher, teachers, students, schedule, actions, perm, pro
         <button className={tab === "students" ? "tab active" : "tab"} onClick={() => setTab("students")}><Users size={13} /> Ученики</button>
         <button className={tab === "materials" ? "tab active" : "tab"} onClick={() => setTab("materials")}><BookOpen size={13} /> Материалы</button>
         <button className={tab === "schedule" ? "tab active" : "tab"} onClick={() => setTab("schedule")}><Calendar size={13} /> Расписание</button>
+        <button className={tab === "groups" ? "tab active" : "tab"} onClick={() => setTab("groups")}><Users size={13} /> Пары и группы</button>
         <button className={tab === "staff" ? "tab active" : "tab"} onClick={() => setTab("staff")}><Building2 size={13} /> Администрация</button>
       </div>
 
@@ -2174,6 +2212,7 @@ function TeacherView({ teacher, teachers, students, schedule, actions, perm, pro
                   <div className="student-item-clickable" onClick={() => setSelectedId(s.id)}>
                     <div className="student-item-top">
                       <span className="student-item-name">{s.name}</span>
+                      <FormatBadge student={s} />
                       <ChevronRight size={14} />
                     </div>
                     <div className="student-item-meta">
@@ -2225,6 +2264,10 @@ function TeacherView({ teacher, teachers, students, schedule, actions, perm, pro
 
                   <div style={{ marginTop: 10 }}>
                     <PackageTracker student={selected} actions={actions} canEdit={perm.package} products={products} slots={mySlots} subject={teacher.subject} />
+                  </div>
+
+                  <div className="field-block">
+                    <FormatPanel student={selected} students={students} teachers={teachers} groups={ext.groups} slots={schedule} subjectMeta={SUBJECTS} canEdit={perm.profile} actions={actions} onOpenGroups={() => setTab("groups")} />
                   </div>
 
                   <div className="field-block">
@@ -2284,9 +2327,12 @@ function TeacherView({ teacher, teachers, students, schedule, actions, perm, pro
                   )}
 
                   <div className="field-block">
-                    <TopicSelector
-                      label={subjMeta.grammarLabel} options={grammarOptions} selected={selected.grammarTopics} readOnly={!perm.profile}
-                      onAdd={(name) => actions.addTopic(selected.id, "grammarTopics", name)}
+                    <ProgramEditor
+                      label={subjMeta.grammarLabel + " по уровням"} topics={selected.grammarTopics} levels={subjMeta.levels} bank={GRAMMAR_BANK[teacher.subject] || {}}
+                      startLevel={selected.startLevel} currentLevel={selected.currentLevel} canEdit={perm.profile}
+                      onAdd={(name, level) => actions.addTopic(selected.id, "grammarTopics", name, level)}
+                      onRename={(id, name) => actions.updateTopic(selected.id, "grammarTopics", id, { name })}
+                      onSetLevel={(id, level) => actions.updateTopic(selected.id, "grammarTopics", id, { level })}
                       onRemove={(id) => actions.removeTopic(selected.id, "grammarTopics", id)}
                       onCycle={(id) => actions.cycleTopicStatus(selected.id, "grammarTopics", id)}
                     />
@@ -2321,6 +2367,11 @@ function TeacherView({ teacher, teachers, students, schedule, actions, perm, pro
         </div>
       )}
 
+      {tab === "groups" && (
+        <div className="card">
+          <GroupsPanel groups={ext.groups} students={students} teachers={teachers} subjectMeta={SUBJECTS} teacherIds={[teacher.id]} canPickTeacher={false} actions={actions} />
+        </div>
+      )}
       {tab === "materials" && (
         <div className="card">
           <LibraryPanel items={ext.library} subjects={[teacher.subject]} subjectMeta={SUBJECTS} canEdit={() => true} author={teacher.name} onAdd={actions.addLibraryItem} onUpdate={actions.updateLibraryItem} onRemove={actions.removeLibraryItem} title={"Общая библиотека: " + SUBJECTS[teacher.subject].label} hint="Видна всем ученикам предмета. Добавляют и правят преподаватели предмета и администратор, ученики только смотрят." />
@@ -2385,37 +2436,30 @@ function TeacherView({ teacher, teachers, students, schedule, actions, perm, pro
 
 function StudentView({ student, teacher, schedule, actions, products, ext }) {
   const subjMeta = SUBJECTS[teacher.subject];
-  const [tab, setTab] = useState("profile");
+  const [tab, setTab] = useState("card");
   const [payOpen, setPayOpen] = useState(false);
-  const mySlots = schedule.filter((sl) => sl.studentId === student.id);
-  const past = mySlots.filter((sl) => sl.date < isoDate(0)).sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time));
+  // Lessons covered by the package count as paid: the link opens for them.
+  const mySlots = withPackagePaid(student, schedule.filter((sl) => sl.studentId === student.id));
+  const ctx = { students: ext.students, teachers: ext.teachers, groups: ext.groups, allSlots: schedule, subjectMeta: SUBJECTS };
+  const T = (key, icon, label) => <button className={tab === key ? "tab active" : "tab"} onClick={() => setTab(key)}>{icon} {label}</button>;
 
   return (
     <div className={"subj-" + teacher.subject}>
       <div className="tabs">
-        <button className={tab === "profile" ? "tab active" : "tab"} onClick={() => setTab("profile")}><GraduationCap size={13} /> Мой прогресс</button>
-        <button className={tab === "schedule" ? "tab active" : "tab"} onClick={() => setTab("schedule")}><Calendar size={13} /> Расписание</button>
-        <button className={tab === "homework" ? "tab active" : "tab"} onClick={() => setTab("homework")}><BookOpen size={13} /> Домашние задания</button>
-        <button className={tab === "library" ? "tab active" : "tab"} onClick={() => setTab("library")}><BookOpen size={13} /> Материалы</button>
-        <button className={tab === "chat" ? "tab active" : "tab"} onClick={() => setTab("chat")}><MessageCircle size={13} /> Переписка</button>
-        <button className={tab === "support" ? "tab active" : "tab"} onClick={() => setTab("support")}><LifeBuoy size={13} /> Поддержка</button>
+        {T("card", <GraduationCap size={13} />, "Моя карточка")}
+        {T("progress", <ListChecksIcon />, "Прогресс")}
+        {T("lessons", <Calendar size={13} />, "Занятия")}
+        {T("homework", <BookOpen size={13} />, "Домашние задания")}
+        {T("library", <BookOpen size={13} />, "Материалы")}
+        {T("chat", <MessageCircle size={13} />, "Переписка")}
+        {T("support", <LifeBuoy size={13} />, "Поддержка")}
       </div>
 
       {payOpen && (
         <PayRequestModal student={student} products={products} subject={teacher.subject} onClose={() => setPayOpen(false)} onSubmit={(d) => { actions.requestPayment(student.id, teacher.id, d); setPayOpen(false); }} />
       )}
 
-      {tab === "profile" && (
-        <StudentOverview student={student} teacher={teacher} subjMeta={subjMeta} slots={mySlots} payRequests={ext.payRequests} onPay={() => setPayOpen(true)} onPayAction={actions.payRequestAction} />
-      )}
-
-      {tab === "library" && (
-        <div className="card">
-          <LibraryPanel items={ext.library} subjects={[teacher.subject]} subjectMeta={SUBJECTS} canEdit={() => false} title={"Материалы: " + subjMeta.label} />
-        </div>
-      )}
-
-      {tab === "profile" && (
+      {tab === "card" && <>
         <div className="card">
           <PageBanner theme={student.pageTheme} />
           <div className="card-head">
@@ -2425,12 +2469,11 @@ function StudentView({ student, teacher, schedule, actions, products, ext }) {
             </div>
             <div className="row-gap">
               <Pill tone={student.status === "active" ? "accent" : "gold"}>{STATUS_LABELS[student.status]}</Pill>
-              <Pill tone={student.planType === "package" ? "teal" : "default"}>{PLAN_LABELS[student.planType || "individual"]}</Pill>
+              <FormatBadge student={student} />
             </div>
           </div>
-
           <div className="field-block">
-            <div className="field-label">Ваш учитель</div>
+            <div className="field-label">Ваш преподаватель</div>
             <div className="teacher-mini-card">
               <Avatar name={teacher.name} photo={teacher.photo} size={44} />
               <div>
@@ -2440,60 +2483,54 @@ function StudentView({ student, teacher, schedule, actions, products, ext }) {
               </div>
             </div>
           </div>
-
           <div className="field-block">
-            <PackageTracker student={student} actions={actions} canEdit={false} products={products} slots={mySlots} subject={teacher.subject} />
-          </div>
-
-          <div className="field-block">
-            <div className="field-label">Уровень: старт → текущий</div>
-            <LevelLadder levels={subjMeta.levels} start={student.startLevel} current={student.currentLevel} />
-            {student.startNote && <p className="body-text" style={{ marginTop: 6 }}>{student.startNote}</p>}
-          </div>
-
-          <div className="field-block">
-            <div className="field-label">Изначальная цель</div>
+            <div className="field-label">Цель и программа</div>
             <p className="body-text">{student.goal || "—"}</p>
+            <div className="row-gap" style={{ marginTop: 6 }}>
+              <Pill tone="teal">{student.examTarget?.exam ? "🎯 " + student.examTarget.exam + (student.examTarget.targetScore ? " · цель " + student.examTarget.targetScore : "") + (student.examTarget.examDate ? " · " + formatDate(student.examTarget.examDate) : "") : "📘 Базовая программа"}</Pill>
+              <span className="hint-text">Уровень: {student.startLevel} → <b>{student.currentLevel}</b></span>
+            </div>
           </div>
+        </div>
+        <StudentOverview student={student} teacher={teacher} subjMeta={subjMeta} slots={mySlots} payRequests={ext.payRequests} onPay={() => setPayOpen(true)} onPayAction={actions.payRequestAction} ctx={ctx} showProgram={false} />
+        {student.canRequestTeacherChange && (
+          <div className="card"><ChangeTeacherRequest student={student} actions={actions} /></div>
+        )}
+      </>}
 
+      {tab === "progress" && <>
+        <ProgressCharts student={student} subjMeta={{ ...subjMeta, bank: GRAMMAR_BANK[teacher.subject] || {} }} slots={mySlots} />
+        <div className="card">
+          <div className="field-block">
+            <ProgramEditor label={subjMeta.grammarLabel + " по уровням"} topics={student.grammarTopics} levels={subjMeta.levels} bank={GRAMMAR_BANK[teacher.subject] || {}} startLevel={student.startLevel} currentLevel={student.currentLevel} canEdit={false} />
+          </div>
+          <div className="field-block">
+            <TopicSelector label={subjMeta.vocabLabel} options={[]} selected={student.vocabTopics} readOnly={true} onAdd={() => {}} onRemove={() => {}} onCycle={() => {}} />
+          </div>
           {student.examTarget?.exam && (
             <div className="field-block">
               <GoalPanel student={student} subject={teacher.subject} canEdit={false} actions={actions} />
             </div>
           )}
-
-          <div className="field-block">
-            <div className="field-label">Прогресс</div>
-            <ProgressBar value={progressOf(student)} />
-            <ProgressBreakdown student={student} subjMeta={subjMeta} />
-          </div>
-
           <div className="field-block">
             <CheckpointsPanel student={student} actions={actions} canEdit={false} />
           </div>
+        </div>
+      </>}
 
-          <div className="field-block">
-            <TopicSelector label={subjMeta.grammarLabel} options={[]} selected={student.grammarTopics} readOnly={true} onAdd={() => {}} onRemove={() => {}} onCycle={() => {}} />
+      {tab === "lessons" && (
+        <div className="card">
+          <StudentLessons student={student} teacher={teacher} slots={mySlots} products={products} payRequests={ext.payRequests} actions={actions} />
+          <div className="field-block" style={{ marginTop: 18 }}>
+            <div className="field-label">Календарь</div>
+            <ScheduleTable slots={mySlots} students={[student]} teacherId={teacher.id} editable={false} actions={actions} mode="student" products={products} allTeachers={[teacher]} />
           </div>
-          <div className="field-block">
-            <TopicSelector label={subjMeta.vocabLabel} options={[]} selected={student.vocabTopics} readOnly={true} onAdd={() => {}} onRemove={() => {}} onCycle={() => {}} />
-          </div>
-
-          {student.canRequestTeacherChange && (
-            <div className="field-block">
-              <ChangeTeacherRequest student={student} actions={actions} />
-            </div>
-          )}
         </div>
       )}
 
-      {tab === "schedule" && (
+      {tab === "library" && (
         <div className="card">
-          <ScheduleTable slots={mySlots} students={[student]} teacherId={teacher.id} editable={false} actions={actions} mode="student" products={products} allTeachers={[teacher]} />
-          <LessonPlanTimeline slots={mySlots} />
-          <PastLessonsSection count={past.length}>
-            {past.slice(0, 8).map((sl) => <PastLessonCard key={sl.id} slot={sl} students={[student]} editable={false} />)}
-          </PastLessonsSection>
+          <LibraryPanel items={ext.library} subjects={[teacher.subject]} subjectMeta={SUBJECTS} canEdit={() => false} title={"Материалы: " + subjMeta.label} />
         </div>
       )}
 
@@ -2527,6 +2564,8 @@ function StudentView({ student, teacher, schedule, actions, products, ext }) {
     </div>
   );
 }
+
+const ListChecksIcon = () => <span aria-hidden="true" style={{ fontSize: 12 }}>📈</span>;
 
 /* --------------------------- teacher edit form ------------------------- */
 
@@ -2651,6 +2690,7 @@ function AdminView({ department, teachers, students, schedule, sales, products, 
         <button className={tab === "teachers" ? "tab active" : "tab"} onClick={() => setTab("teachers")}><Users size={13} /> Учителя</button>
         <button className={tab === "schedule" ? "tab active" : "tab"} onClick={() => setTab("schedule")}><Calendar size={13} /> Общее расписание</button>
         <button className={tab === "roster" ? "tab active" : "tab"} onClick={() => setTab("roster")}><GraduationCap size={13} /> Ученики школы</button>
+        <button className={tab === "groups" ? "tab active" : "tab"} onClick={() => setTab("groups")}><Users size={13} /> Пары и группы</button>
         <button className={tab === "library" ? "tab active" : "tab"} onClick={() => setTab("library")}><BookOpen size={13} /> Материалы</button>
         <button className={tab === "sales" ? "tab active" : "tab"} onClick={() => setTab("sales")}><ShoppingBag size={13} /> Магазин</button>
         <button className={tab === "messages" ? "tab active" : "tab"} onClick={() => setTab("messages")}>
@@ -2658,6 +2698,11 @@ function AdminView({ department, teachers, students, schedule, sales, products, 
         </button>
       </div>
 
+      {tab === "groups" && (
+        <div className="card">
+          <GroupsPanel groups={ext.groups} students={students} teachers={teachers} subjectMeta={SUBJECTS} teacherIds={deptTeachers.map((t) => t.id)} canPickTeacher={true} actions={actions} />
+        </div>
+      )}
       {tab === "library" && (
         <div className="card">
           <LibraryPanel items={ext.library} subjects={deptSubjects} subjectMeta={SUBJECTS} canEdit={() => true} author="Администрация" onAdd={actions.addLibraryItem} onUpdate={actions.updateLibraryItem} onRemove={actions.removeLibraryItem} />
@@ -2840,7 +2885,7 @@ function AdminView({ department, teachers, students, schedule, sales, products, 
                     return (
                       <React.Fragment key={s.id}>
                         <div className="admin-schedule-row roster-row">
-                          <span>{s.name}</span>
+                          <span>{s.name}<br /><FormatBadge student={s} /></span>
                           <span>{t ? t.name : "—"}</span>
                           <span>{s.currentLevel}</span>
                           <span>
@@ -2891,6 +2936,7 @@ function AdminView({ department, teachers, students, schedule, sales, products, 
                                 <span className="hint-text">Редактирование ученика — {s.name}</span>
                                 <button className="btn-icon" onClick={() => setEditingStudentId(null)}><X size={14} /></button>
                               </div>
+                              <FormatPanel student={s} students={students} teachers={teachers} groups={ext.groups} slots={schedule} subjectMeta={SUBJECTS} canEdit={true} actions={actions} onOpenGroups={() => setTab("groups")} />
                               <input className="mini-input wide" placeholder="Имя" value={studentEditForm.name} onChange={(e) => setStudentEditForm({ ...studentEditForm, name: e.target.value })} />
                               <input className="mini-input wide" placeholder="Контакт" value={studentEditForm.contact} onChange={(e) => setStudentEditForm({ ...studentEditForm, contact: e.target.value })} />
                               <textarea className="mini-textarea" placeholder="Изначальная цель" value={studentEditForm.goal} onChange={(e) => setStudentEditForm({ ...studentEditForm, goal: e.target.value })} />
@@ -3306,6 +3352,7 @@ export default function App({ session, onLogout }) {
   const [library, setLibrary] = useState([]);
   const [calls, setCalls] = useState([]);
   const [payRequests, setPayRequests] = useState([]);
+  const [groups, setGroups] = useState([]);
 
   const persist = useCallback(async (key, value) => {
     try {
@@ -3329,6 +3376,8 @@ export default function App({ session, onLogout }) {
       const libRes = await loadStrict("su-library-v1");
       const callRes = await loadStrict("su-calls-v1");
       const payRes = await loadStrict("su-payreq-v1");
+      const grpRes = await loadStrict("su-groups-v1");
+      setGroups(grpRes.value || []);
       setLibrary(libRes.value || seedLibrary);
       setCalls(callRes.value || []);
       setPayRequests(payRes.value || []);
@@ -3385,6 +3434,7 @@ export default function App({ session, onLogout }) {
   const saveLibrary = (next) => { setLibrary(next); persist("su-library-v1", next); };
   const saveCalls = (next) => { setCalls(next); persist("su-calls-v1", next); };
   const savePayRequests = (next) => { setPayRequests(next); persist("su-payreq-v1", next); };
+  const saveGroups = (next) => { setGroups(next); persist("su-groups-v1", next); };
 
   const [reminderTick, setReminderTick] = useState(0);
   useEffect(() => {
@@ -3432,6 +3482,12 @@ export default function App({ session, onLogout }) {
       else saveTeachers(teachers.map((t) => (t.id === fromId ? { ...t, staffMessages: [...(t.staffMessages || []), msg] } : t)));
     },
     resolveCall: (id) => saveCalls(calls.map((c) => (c.id === id ? { ...c, status: "resolved", resolvedAt: new Date().toISOString() } : c))),
+    studentCancelSlot: (slotId) => {
+      const sl = schedule.find((x) => x.id === slotId);
+      if (!sl || (new Date(sl.date + "T" + sl.time + ":00").getTime() - Date.now()) / 36e5 <= CHANGE_DEADLINE_H) return;
+      saveSchedule(schedule.map((x) => (x.id === slotId ? { ...x, status: "cancelled", cancelledBy: "student", cancelledAt: new Date().toISOString() } : x)));
+      saveStudents(students.map((s) => (s.id === sl.studentId ? { ...s, messages: [...(s.messages || []), { id: uid("msg"), sender: "student", text: "✕ Отменяю урок " + formatDate(sl.date) + " в " + sl.time + ".", attachment: null, reactions: {}, at: new Date().toISOString() }] } : s)));
+    },
     requestPayment: (studentId, teacherId, d) => savePayRequests([...payRequests, { id: uid("pay"), studentId, teacherId, ...d, status: "new", link: "", at: new Date().toISOString() }]),
     // Statuses: new → link_sent → paid (student says so) → confirmed by the admin; or rejected / cancelled.
     payRequestAction: (id, status, extra = {}) => {
@@ -3442,6 +3498,13 @@ export default function App({ session, onLogout }) {
       if (status === "link_sent") note("💳 Ссылка на оплату (" + r.label + "): " + extra.link + "\nПосле оплаты нажмите «Я оплатил(а)» в разделе «Мой прогресс».");
       if (status === "rejected") note("Запрос на оплату «" + r.label + "» отменён администратором. Если что-то не так, напишите здесь.");
       if (status !== "confirmed") return;
+      if (r.slotId) {
+        // One lesson paid: the lesson opens its link, no package changes.
+        saveSchedule(schedule.map((sl) => (sl.id === r.slotId ? { ...sl, paid: true } : sl)));
+        saveSales([...sales, { id: uid("sale"), date: isoDate(0), productId: r.productId, qty: 1, discounted: false, studentId: r.studentId, teacherId: r.teacherId || null, amount: r.amount || 0, payout: 0 }]);
+        note("✅ Оплата получена: " + r.label + ". Ссылка на урок открыта в разделе «Занятия».");
+        return;
+      }
       // Paid lessons go on top of what is left in the current package.
       const date = isoDate(0);
       const product = products.find((p) => p.id === r.productId);
@@ -3516,7 +3579,62 @@ export default function App({ session, onLogout }) {
       saveSchedule(schedule.filter((sl) => !(sl.studentId === studentId && sl.date >= isoDate(0))));
     },
     updatePageTheme: (studentId, patch) => saveStudents(students.map((s) => s.id === studentId ? { ...s, pageTheme: { ...(s.pageTheme || {}), ...patch } } : s)),
-    addTopic: (studentId, kind, name) => saveStudents(students.map((s) => s.id === studentId ? { ...s, [kind]: [...s[kind], { id: uid("tp"), name, status: "todo" }] } : s)),
+    addTopic: (studentId, kind, name, level) => saveStudents(students.map((s) => s.id === studentId ? { ...s, [kind]: [...s[kind], { id: uid("tp"), name, status: "todo", ...(level ? { level } : {}) }] } : s)),
+    updateTopic: (studentId, kind, topicId, patch) => saveStudents(students.map((s) => s.id === studentId ? { ...s, [kind]: s[kind].map((t) => (t.id === topicId ? { ...t, ...patch } : t)) } : s)),
+    setHomeworkStatus: (studentId, hwId, status, feedback) => saveStudents(students.map((s) => s.id === studentId ? { ...s, homework: (s.homework || []).map((h) => h.id === hwId ? { ...h, status, feedback: (feedback ?? "").trim() ? feedback.trim() : h.feedback || "", reviewedAt: status === "reviewed" ? new Date().toISOString() : h.reviewedAt } : h) } : s)),
+    removeHomework: (studentId, hwId) => saveStudents(students.map((s) => s.id === studentId ? { ...s, homework: (s.homework || []).filter((h) => h.id !== hwId) } : s)),
+    setFormat: (studentId, format) => saveStudents(students.map((s) => (s.id === studentId ? { ...s, format } : s))),
+    // «Под одним зонтом»: a second card of the same person for the other direction, one package for both.
+    linkUmbrella: (studentId, teacherId) => {
+      const base = students.find((s) => s.id === studentId);
+      const t = teachers.find((x) => x.id === teacherId);
+      if (!base || !t) return;
+      const id = uid("s");
+      const lvl = SUBJECTS[t.subject].levels[0];
+      const twin = normalizeStudent({ id, teacherId, name: base.name, contact: base.contact, goal: base.goal, status: base.status, planType: base.planType, format: "umbrella", umbrellaWith: base.id, startLevel: lvl, currentLevel: lvl, packageProductId: base.packageProductId, packageTotal: base.packageTotal, packageAssignedAt: base.packageAssignedAt, packageLabel: base.packageLabel });
+      saveStudents([...students.map((s) => (s.id === studentId ? { ...s, format: "umbrella", umbrellaWith: id } : s)), twin]);
+    },
+    unlinkUmbrella: (studentId) => {
+      const other = students.find((s) => s.id === studentId)?.umbrellaWith;
+      saveStudents(students.map((s) => (s.id === studentId || s.id === other ? { ...s, umbrellaWith: null } : s)));
+    },
+    createGroup: ({ kind, teacherId, studentIds }, then) => {
+      const n = groups.filter((g) => g.kind === kind).length + 1;
+      const g = { id: uid("grp"), kind, teacherId, studentIds: studentIds || [], name: (kind === "pair" ? "Пара " : "Группа ") + n, slots: [], startDate: "" };
+      saveGroups([...groups, g]);
+      if (studentIds?.length) saveStudents(students.map((s) => (studentIds.includes(s.id) ? { ...s, format: kind } : s)));
+      if (then) then(g);
+    },
+    updateGroup: (id, patch) => {
+      saveGroups(groups.map((g) => (g.id === id ? { ...g, ...patch } : g)));
+      if (patch.studentIds) saveStudents(students.map((s) => (patch.studentIds.includes(s.id) ? { ...s, format: patch.kind || s.format } : s)));
+    },
+    removeGroup: (id) => saveGroups(groups.filter((g) => g.id !== id)),
+    joinGroup: (id, studentId) => saveGroups(groups.map((g) => (g.id === id ? { ...g, studentIds: [...new Set([...(g.studentIds || []), studentId])] } : g))),
+    leaveGroup: (id, studentId) => saveGroups(groups.map((g) => (g.id === id ? { ...g, studentIds: (g.studentIds || []).filter((x) => x !== studentId) } : g))),
+    // Lessons for every member at the group's weekly times; already planned ones are skipped.
+    generateGroupLessons: (id, weeks) => {
+      const g = groups.find((x) => x.id === id);
+      if (!g) return "";
+      const start = new Date(Math.max(Date.now(), g.startDate ? new Date(g.startDate + "T00:00:00").getTime() : 0));
+      const add = [];
+      for (let i = 0; i < weeks * 7; i++) {
+        const d = new Date(start); d.setDate(start.getDate() + i);
+        const wd = ((d.getDay() + 6) % 7) + 1;
+        const date = localDateStr(d);
+        for (const x of g.slots || []) {
+          if (x.weekday !== wd) continue;
+          for (const sid of g.studentIds || []) {
+            if (schedule.some((sl) => sl.studentId === sid && sl.date === date && sl.time === x.time && sl.status !== "cancelled")) continue;
+            add.push({ id: uid("sl"), teacherId: g.teacherId, studentId: sid, groupId: g.id, groupName: g.name, date, time: x.time, duration: x.duration || 60, type: "regular", status: "booked", requested: null, history: [], topicsCovered: [], lessonMaterial: "", paid: false, meetingLink: "", paymentRequest: null });
+          }
+        }
+      }
+      if (!add.length) return "Новых занятий нет: всё на эти недели уже в расписании.";
+      saveSchedule([...schedule, ...add]);
+      const per = add.length / Math.max(1, (g.studentIds || []).length);
+      return "✅ Поставлено " + per + " занятий для «" + g.name + "» каждому участнику (" + (g.studentIds || []).length + ").";
+    },
     removeTopic: (studentId, kind, topicId) => saveStudents(students.map((s) => s.id === studentId ? { ...s, [kind]: s[kind].filter((t) => t.id !== topicId) } : s)),
     cycleTopicStatus: (studentId, kind, topicId) => saveStudents(students.map((s) => s.id === studentId ? { ...s, [kind]: s[kind].map((t) => t.id === topicId ? { ...t, status: nextTopicStatus(t.status) } : t) } : s)),
     setExamTarget: (studentId, examTarget) => saveStudents(students.map((s) => s.id === studentId ? { ...s, examTarget, examTopics: examTarget ? (s.examTopics || []) : [] } : s)),
@@ -3681,7 +3799,7 @@ export default function App({ session, onLogout }) {
   }
 
   function exportAllData() {
-    const payload = { teachers, students, schedule, sales, products, discountPercent, expenses, library, calls, payRequests, exportedAt: new Date().toISOString() };
+    const payload = { teachers, students, schedule, sales, products, discountPercent, expenses, library, calls, payRequests, groups, exportedAt: new Date().toISOString() };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -3706,6 +3824,7 @@ export default function App({ session, onLogout }) {
       if (data.library) saveLibrary(data.library);
       if (data.calls) saveCalls(data.calls);
       if (data.payRequests) savePayRequests(data.payRequests);
+      if (data.groups) saveGroups(data.groups);
       setErrorMsg("");
       return true;
     } catch (e) {
@@ -3724,7 +3843,7 @@ export default function App({ session, onLogout }) {
     );
   }
 
-  const ext = { library, calls, payRequests };
+  const ext = { library, calls, payRequests, groups, students, teachers };
   const currentTeacher = teachers.find((t) => t.id === asTeacherId && t.department === department) || teachers.filter((t) => t.department === department)[0];
   const currentStudent = students.find((s) => s.id === asStudentId) || null;
   const currentStudentTeacher = currentStudent ? teachers.find((t) => t.id === currentStudent.teacherId) : null;
@@ -3994,6 +4113,7 @@ const CSS = `
 .homework-list { display:flex; flex-direction:column; gap:10px; margin-top:8px; }
 .homework-item { background: var(--paper); border-radius:12px; padding:12px; }
 .hw-submission { background: var(--card); border-radius:8px; padding:8px; margin-top:6px; }
+.hw-status-bar { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:8px; padding-top:8px; border-top:1px dashed var(--border); }
 .hw-feedback { margin-top:6px; font-size:12.5px; background: var(--accent-soft); color: var(--ink); padding:6px 8px; border-radius:8px; }
 
 .chat-box { display:flex; flex-direction:column; gap:8px; max-height:280px; overflow-y:auto; padding:6px 2px; }

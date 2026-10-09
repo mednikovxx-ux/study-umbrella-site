@@ -2532,7 +2532,7 @@ function TeacherView({ teacher, teachers, students, schedule, actions, perm, pro
 
 /* --------------------------- student view ---------------------------- */
 
-function StudentView({ student, teacher, schedule, actions, products, ext }) {
+function StudentView({ student, teacher, schedule, actions, products, ext, onSwitchStudent }) {
   const subjMeta = SUBJECTS[teacher.subject];
   const [tab, setTab] = useState("card");
   const [styling, setStyling] = useState(false);
@@ -2544,6 +2544,22 @@ function StudentView({ student, teacher, schedule, actions, products, ext }) {
 
   return (
     <div className={"subj-" + teacher.subject} style={student.pageTheme?.accentColor ? { "--accent": student.pageTheme.accentColor } : undefined}>
+      {(() => {
+        // «Под одним зонтом»: one person, a card per subject — switch between them here.
+        const um = umbrellaOf(ext.umbrellas, student);
+        if (!um || !onSwitchStudent) return null;
+        return (
+          <div className="subj-switch">
+            <span className="hint-text">🌂 Ваши предметы:</span>
+            {um.memberIds.map((id) => {
+              const st = ext.students.find((x) => x.id === id);
+              const t = st && ext.teachers.find((x) => x.id === st.teacherId);
+              if (!t) return null;
+              return <button key={id} className={"btn-small" + (id === student.id ? " accent" : "")} onClick={() => onSwitchStudent(id)}>{SUBJECTS[t.subject].emoji} {SUBJECTS[t.subject].label}</button>;
+            })}
+          </div>
+        );
+      })()}
       <div className="tabs">
         {T("card", <GraduationCap size={13} />, "Моя карточка")}
         {T("progress", <ListChecksIcon />, "Прогресс")}
@@ -4160,7 +4176,7 @@ export default function App({ session, onLogout }) {
         )}
         {role === "teacher" && !currentTeacher && <EmptyState icon={Users} title="В этом подразделении пока нет учителей" />}
         {role === "student" && currentStudent && currentStudentTeacher && (
-          <StudentView student={currentStudent} teacher={currentStudentTeacher} schedule={schedule} actions={actions} products={products} ext={ext} />
+          <StudentView student={currentStudent} teacher={currentStudentTeacher} schedule={schedule} actions={actions} products={products} ext={ext} onSwitchStudent={setAsStudentId} />
         )}
         {role === "student" && !currentStudent && <EmptyState icon={GraduationCap} title="В этом подразделении пока нет учеников" />}
       </main>
@@ -4358,6 +4374,7 @@ const CSS = `
 .hw-submission { background: var(--card); border-radius:8px; padding:8px; margin-top:6px; }
 .attach-list { display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
 .attachment-chip.media { flex-direction:column; align-items:flex-start; gap:4px; }
+.subj-switch { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:12px; }
 .hw-status-bar { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:8px; padding-top:8px; border-top:1px dashed var(--border); }
 .hw-feedback { margin-top:6px; font-size:12.5px; background: var(--accent-soft); color: var(--ink); padding:6px 8px; border-radius:8px; }
 

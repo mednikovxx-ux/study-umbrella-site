@@ -7,7 +7,7 @@ import {
 
 import { storage } from "./storage.js";
 import AdminAccess from "./admin-access.jsx";
-import { SelfOverviewPanel, kindForStudent, GoalMarker, CHECK_KINDS, SelfMonthPanel, LESSON_KINDS, PayrollCard, slotKind, teacherPayroll, UmbrellaPanel, umbrellaOf, UMBRELLA_PRICES, AdminInbox, CallAdminButton, EmojiPicker, EXTRA_CSS, FormatBadge, FormatPanel, GroupsPanel, LibraryPanel, PayRequestModal, ProgramEditor, ProgressCharts, QUICK_REACTIONS, StudentLessons, StudentOverview, CHANGE_DEADLINE_H, PAY_DEADLINE_H, seedLibrary, withPackagePaid } from "./extras.jsx";
+import { ClubsPanel, TeacherClubs, StudentClubs, CLUB_PRICE, LessonFiles, TargetPicker, targetText, SelfOverviewPanel, kindForStudent, GoalMarker, CHECK_KINDS, SelfMonthPanel, LESSON_KINDS, PayrollCard, slotKind, teacherPayroll, UmbrellaPanel, umbrellaOf, UMBRELLA_PRICES, AdminInbox, CallAdminButton, EmojiPicker, EXTRA_CSS, FormatBadge, FormatPanel, GroupsPanel, LibraryPanel, PayRequestModal, ProgramEditor, ProgressCharts, QUICK_REACTIONS, StudentLessons, StudentOverview, CHANGE_DEADLINE_H, PAY_DEADLINE_H, seedLibrary, withPackagePaid } from "./extras.jsx";
 const LOGO_DATA_URI = "/img/logo.png";
 
 /* ----------------------------- helpers ----------------------------- */
@@ -113,6 +113,11 @@ const HOURS = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "1
 
 /* --------------------------- subjects config -------------------------- */
 
+// Humanities levels mean where the student stands on the way to the exams.
+const HUM_LEVELS = ["Основы (5–8 класс)", "Уровень ОГЭ", "Уровень ЕГЭ", "ЕГЭ на 80+"];
+const OLD_HUM_LEVEL = { "Базовый": "Основы (5–8 класс)", "Средний": "Уровень ОГЭ", "Продвинутый": "Уровень ЕГЭ" };
+const humLevel = (l) => OLD_HUM_LEVEL[l] || l;
+
 const SUBJECTS = {
   english: { label: "Английский", emoji: "🇬🇧", dept: "language", levels: ["A1", "A2", "B1", "B2", "C1", "C2"], grammarLabel: "Грамматика", vocabLabel: "Лексика" },
   spanish: { label: "Испанский", emoji: "🇪🇸", dept: "language", levels: ["A1", "A2", "B1", "B2", "C1", "C2"], grammarLabel: "Грамматика", vocabLabel: "Лексика" },
@@ -120,9 +125,9 @@ const SUBJECTS = {
   korean: { label: "Корейский", emoji: "🇰🇷", dept: "language", levels: ["TOPIK 1", "TOPIK 2", "TOPIK 3", "TOPIK 4", "TOPIK 5", "TOPIK 6"], grammarLabel: "Грамматика", vocabLabel: "Лексика" },
   italian: { label: "Итальянский", emoji: "🇮🇹", dept: "language", levels: ["A1", "A2", "B1", "B2", "C1", "C2"], grammarLabel: "Грамматика", vocabLabel: "Лексика" },
   turkish: { label: "Турецкий", emoji: "🇹🇷", dept: "language", levels: ["A1", "A2", "B1", "B2", "C1", "C2"], grammarLabel: "Грамматика", vocabLabel: "Лексика" },
-  history: { label: "История", emoji: "🏛️", dept: "humanities", levels: ["Базовый", "Средний", "Продвинутый"], grammarLabel: "Темы курса", vocabLabel: "Ключевые понятия" },
-  social: { label: "Обществознание", emoji: "⚖️", dept: "humanities", levels: ["Базовый", "Средний", "Продвинутый"], grammarLabel: "Темы курса", vocabLabel: "Ключевые понятия" },
-  russian: { label: "Русский язык", emoji: "📖", dept: "humanities", levels: ["Базовый", "Средний", "Продвинутый"], grammarLabel: "Грамматика", vocabLabel: "Лексика" },
+  history: { label: "История", emoji: "🏛️", dept: "humanities", levels: HUM_LEVELS, grammarLabel: "Темы курса", vocabLabel: "Ключевые понятия" },
+  social: { label: "Обществознание", emoji: "⚖️", dept: "humanities", levels: HUM_LEVELS, grammarLabel: "Темы курса", vocabLabel: "Ключевые понятия" },
+  russian: { label: "Русский язык", emoji: "📖", dept: "humanities", levels: HUM_LEVELS, grammarLabel: "Грамматика", vocabLabel: "Лексика" },
 };
 
 const SUBJECT_ACCENTS = {
@@ -194,19 +199,22 @@ const GRAMMAR_BANK = {
     C1: ["Сложные синтаксические конструкции"], C2: ["Стилистика официальной речи"],
   },
   history: {
-    Базовый: ["Древний мир", "Средние века", "Великие географические открытия", "История России до XVII века"],
-    Средний: ["Новое время", "Революции XVIII–XIX вв.", "История России XVIII–XIX вв.", "Мировые войны"],
-    Продвинутый: ["Новейшая история", "Историография и источниковедение", "История России XX–XXI вв.", "Историческая аналитика и эссе"],
+    "Основы (5–8 класс)": ["Древний мир", "Средние века", "Великие географические открытия", "История России до XVII века"],
+    "Уровень ОГЭ": ["Новое время", "Революции XVIII–XIX вв.", "История России XVIII–XIX вв.", "Мировые войны"],
+    "Уровень ЕГЭ": ["Новейшая история", "Историография и источниковедение", "История России XX–XXI вв.", "Историческая аналитика и эссе"],
+    "ЕГЭ на 80+": ["Историческое сочинение на максимум", "Сложные задания второй части", "Аргументация и историография"],
   },
   social: {
-    Базовый: ["Человек и общество", "Семья", "Экономика: основные понятия", "Право: основы"],
-    Средний: ["Политическая система", "Гражданское общество", "Рыночная экономика", "Социальные институты"],
-    Продвинутый: ["Международные отношения", "Экономическая теория", "Конституционное право", "Подготовка к ЕГЭ: эссе"],
+    "Основы (5–8 класс)": ["Человек и общество", "Семья", "Экономика: основные понятия", "Право: основы"],
+    "Уровень ОГЭ": ["Политическая система", "Гражданское общество", "Рыночная экономика", "Социальные институты"],
+    "Уровень ЕГЭ": ["Международные отношения", "Экономическая теория", "Конституционное право", "Подготовка к ЕГЭ: эссе"],
+    "ЕГЭ на 80+": ["Задание 25: обоснование и примеры", "Сложные задачи по экономике и праву", "Аргументация без потери баллов"],
   },
   russian: {
-    Базовый: ["Части речи", "Орфограммы корня", "Простое предложение", "Пунктуация при однородных членах"],
-    Средний: ["Сложное предложение", "Причастный и деепричастный обороты", "Прямая и косвенная речь", "Стили речи"],
-    Продвинутый: ["Синтаксис сложных конструкций", "Пунктуация в СПП", "Анализ текста", "Подготовка к сочинению"],
+    "Основы (5–8 класс)": ["Части речи", "Орфограммы корня", "Простое предложение", "Пунктуация при однородных членах"],
+    "Уровень ОГЭ": ["Сложное предложение", "Причастный и деепричастный обороты", "Прямая и косвенная речь", "Стили речи"],
+    "Уровень ЕГЭ": ["Синтаксис сложных конструкций", "Пунктуация в СПП", "Анализ текста", "Подготовка к сочинению"],
+    "ЕГЭ на 80+": ["Сочинение на максимум", "Трудные случаи пунктуации", "Трудные случаи орфографии"],
   },
 };
 
@@ -236,6 +244,8 @@ function normalizeStudent(s) {
     ...s,
     pageTheme: { bannerColor: "", bannerImage: "", bannerEmoji: "", stickers: [], ...(s.pageTheme || {}) },
   };
+  base.startLevel = humLevel(base.startLevel); base.currentLevel = humLevel(base.currentLevel); if (base.targetLevel) base.targetLevel = humLevel(base.targetLevel);
+  base.grammarTopics = (base.grammarTopics || []).map((t) => (t.level ? { ...t, level: humLevel(t.level) } : t));
   base.messages = (base.messages || []).map((m) => ({ attachment: null, reactions: {}, ...m }));
   base.supportMessages = (base.supportMessages || []).map((m) => ({ attachment: null, reactions: {}, ...m }));
   base.homework = (base.homework || []).map((h) => ({ materialAttachment: null, submissionAttachment: null, ...h }));
@@ -440,7 +450,7 @@ const seedStudents = [
 ];
 
 // Demo: Петя занимается историей и обществознанием одним пакетом «Под одним зонтом».
-const seedUmbrellas = [{ id: "um1", name: "Петя Соколов", contact: "мама Ирина +7 901 000-00-11", total: 12, assignedAt: isoDate(-25), memberIds: ["s2", "s5"], createdAt: new Date().toISOString() }];
+const seedUmbrellas = [{ id: "um1", name: "Петя Соколов", contact: "мама Ирина +7 901 000-00-11", total: 12, assignedAt: isoDate(-25), memberIds: ["s2", "s5"], plan: { s2: 6, s5: 6 }, createdAt: new Date().toISOString() }];
 
 const SUBJECT_GENITIVE = {
   english: "английскому языку", spanish: "испанскому языку", chinese: "китайскому языку", korean: "корейскому языку", italian: "итальянскому языку", turkish: "турецкому языку",
@@ -1446,8 +1456,9 @@ function SlotRow({ slot, students, readOnly, onAssign, onCancel, onReschedule, o
 
 /* --------------------------- schedule table --------------------------- */
 
-function PastLessonCard({ slot, students, editable, onAddSlotTopic, onRemoveSlotTopic, onSetSlotMaterial }) {
+function PastLessonCard({ slot, students, editable, onAddSlotTopic, onRemoveSlotTopic, onSetSlotMaterial, onAddSlotFile, onRemoveSlotFile }) {
   const student = students.find((s) => s.id === slot.studentId);
+  const [linkDraft, setLinkDraft] = useState("");
   const [newTopicTag, setNewTopicTag] = useState("");
   const [materialDraft, setMaterialDraft] = useState(slot.lessonMaterial || "");
 
@@ -1493,7 +1504,16 @@ function PastLessonCard({ slot, students, editable, onAddSlotTopic, onRemoveSlot
         </div>
       )}
 
-      <div className="field-label">Детали урока и материалы для повторения</div>
+      <div className="field-label">Материалы урока для повторения</div>
+      <LessonFiles slot={slot} />
+      {editable && onAddSlotFile && (
+        <div className="row-gap" style={{ margin: "6px 0", flexWrap: "wrap" }}>
+          <AttachFileButton multiple label="Прикрепить файлы, аудио, видео" onPicked={(a) => onAddSlotFile(slot.id, a)} />
+          <input className="mini-input wide" placeholder="Ссылка (запись урока, презентация, видео) — Enter" value={linkDraft} onChange={(e) => setLinkDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && /^https?:\/\//.test(linkDraft.trim())) { onAddSlotFile(slot.id, { url: linkDraft.trim() }); setLinkDraft(""); } }} />
+          {(slot.lessonFiles || []).length > 0 && <button className="btn-small" onClick={() => onRemoveSlotFile(slot.id, (slot.lessonFiles || []).length - 1)}>Убрать последний</button>}
+        </div>
+      )}
+      <div className="field-label">Что было на уроке</div>
       {editable ? (
         <textarea
           className="mini-textarea" placeholder="Что было на уроке, материалы для повторения, ссылка на запись..."
@@ -2083,25 +2103,26 @@ function GoalPanel({ student, subject, canEdit, actions }) {
 
       {isExam && (
         <div className="exam-goal-box">
-          {canEdit ? (
+          {canEdit ? (<>
             <div className="row-gap" style={{ marginTop: 8 }}>
               <select className="mini-select" value={student.examTarget.exam} onChange={(e) => actions.setExamTarget(student.id, { ...student.examTarget, exam: e.target.value })}>
                 {examOptions.map((ex) => <option key={ex} value={ex}>{ex}</option>)}
               </select>
-              <input className="mini-input" style={{ width: 90 }} placeholder="Балл цель" value={student.examTarget.targetScore} onChange={(e) => actions.setExamTarget(student.id, { ...student.examTarget, targetScore: e.target.value })} />
+              <span className="hint-text">дата экзамена:</span>
               <input type="date" className="mini-input" value={student.examTarget.examDate} onChange={(e) => actions.setExamTarget(student.id, { ...student.examTarget, examDate: e.target.value })} />
             </div>
-          ) : (
+            <TargetPicker examTarget={student.examTarget} onChange={(t) => actions.setExamTarget(student.id, t)} />
+          </>) : (
             <div className="row-gap" style={{ marginTop: 8 }}>
               <Pill tone="gold">🎯 {student.examTarget.exam}</Pill>
-              {student.examTarget.targetScore && <span className="hint-text">цель: {student.examTarget.targetScore}</span>}
+              {targetText(student.examTarget) && <span className="hint-text">цель: {targetText(student.examTarget)}</span>}
               {student.examTarget.examDate && <span className="hint-text">дата: {formatDate(student.examTarget.examDate)}</span>}
             </div>
           )}
 
           <div className="exam-subblock">
             <TopicSelector
-              label={(SUBJECTS[subject] && SUBJECTS[subject].dept === "humanities" ? "Темы под " : "Грамматика под ") + (student.examTarget.targetScore ? "балл " + student.examTarget.targetScore : student.examTarget.exam)}
+              label={(SUBJECTS[subject] && SUBJECTS[subject].dept === "humanities" ? "Темы под " : "Грамматика под ") + (targetText(student.examTarget) || student.examTarget.exam)}
               options={grammarBank}
               selected={student.examGrammar || []}
               readOnly={!canEdit}
@@ -2331,27 +2352,27 @@ function TeacherView({ teacher, teachers, students, schedule, actions, perm, pro
                     <div className="field-label">Желаемый результат</div>
                     <div className="row-gap" style={{ flexWrap: "wrap" }}>
                       <span className="hint-text">Уровень-цель:</span>
-                      <select className="mini-select" disabled={!perm.profile} value={selected.targetLevel || ""} onChange={(e) => actions.updateStudent(selected.id, { targetLevel: e.target.value })}>
+                      <select className="mini-select" disabled={!(perm.profile || perm.package)} value={selected.targetLevel || ""} onChange={(e) => actions.updateStudent(selected.id, { targetLevel: e.target.value })}>
                         <option value="">не задан</option>
                         {subjMeta.levels.map((l) => <option key={l} value={l}>{l}</option>)}
                       </select>
                     </div>
-                    <textarea className="mini-textarea" style={{ marginTop: 6 }} readOnly={!perm.profile} placeholder="Чего хотим добиться: например «свободно говорить на работе» или «ЕГЭ на 85+»" value={selected.targetResult || ""} onChange={(e) => actions.updateStudent(selected.id, { targetResult: e.target.value })} />
+                    <textarea className="mini-textarea" style={{ marginTop: 6 }} readOnly={!(perm.profile || perm.package)} placeholder="Чего хотим добиться: например «свободно говорить на работе» или «ЕГЭ на 85+»" value={selected.targetResult || ""} onChange={(e) => actions.updateStudent(selected.id, { targetResult: e.target.value })} />
                   </div>
 
                   <div className="field-block">
                     <div className="field-label">Уровень: старт → текущий</div>
                     <LevelLadder levels={subjMeta.levels} start={selected.startLevel} current={selected.currentLevel} />
-                    {perm.profile && (
-                      <div className="row-gap" style={{ marginTop: 8 }}>
+                    {(perm.profile || perm.package) && (
+                      <div className="row-gap" style={{ marginTop: 8, flexWrap: "wrap" }}>
+                        <span className="hint-text">Стартовый уровень:</span>
                         <select className="mini-select" value={selected.startLevel} onChange={(e) => actions.updateStudent(selected.id, { startLevel: e.target.value })}>
                           {subjMeta.levels.map((l) => <option key={l} value={l}>{l}</option>)}
                         </select>
-                        <span className="hint-text">старт</span>
+                        <span className="hint-text">Текущий уровень:</span>
                         <select className="mini-select" value={selected.currentLevel} onChange={(e) => actions.updateStudent(selected.id, { currentLevel: e.target.value })}>
                           {subjMeta.levels.map((l) => <option key={l} value={l}>{l}</option>)}
                         </select>
-                        <span className="hint-text">текущий</span>
                       </div>
                     )}
                     <div style={{ marginTop: 8 }}>
@@ -2424,6 +2445,17 @@ function TeacherView({ teacher, teachers, students, schedule, actions, perm, pro
                 </div>
 
                 <div className="card">
+                  <PastLessonsSection count={mySlots.filter((sl) => sl.studentId === selected.id && sl.date < isoDate(0)).length}>
+                    <div className="hint-text" style={{ marginBottom: 6 }}>Прикрепите к прошедшим урокам темы, файлы, записи и ссылки — ученик увидит их в «Занятиях» и сможет повторить.</div>
+                    {mySlots.filter((sl) => sl.studentId === selected.id && sl.date < isoDate(0)).sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time)).slice(0, 20).map((sl) => (
+                      <PastLessonCard key={sl.id} slot={sl} students={myStudents} editable={perm.schedule}
+                        onAddSlotTopic={actions.addSlotTopic} onRemoveSlotTopic={actions.removeSlotTopic} onSetSlotMaterial={actions.setSlotMaterial}
+                        onAddSlotFile={actions.addSlotFile} onRemoveSlotFile={actions.removeSlotFile} />
+                    ))}
+                  </PastLessonsSection>
+                </div>
+
+                <div className="card">
                   <HomeworkPanel key={selected.id} student={selected} actions={actions} role="teacher" canAct={perm.profile} />
                 </div>
 
@@ -2465,12 +2497,14 @@ function TeacherView({ teacher, teachers, students, schedule, actions, perm, pro
 
       {tab === "schedule" && (
         <div className="card">
+          <TeacherClubs clubs={ext.clubs} teacher={teacher} students={students} actions={actions} />
           <ScheduleTable slots={mySlots} students={myStudents} teacherId={teacher.id} editable={perm.schedule} actions={actions} mode="teacher" />
           <PastLessonsSection count={past.length}>
-            {past.slice(0, 8).map((sl) => (
+            {past.slice(0, 30).map((sl) => (
               <PastLessonCard
                 key={sl.id} slot={sl} students={myStudents} editable={perm.schedule}
                 onAddSlotTopic={actions.addSlotTopic} onRemoveSlotTopic={actions.removeSlotTopic} onSetSlotMaterial={actions.setSlotMaterial}
+                onAddSlotFile={actions.addSlotFile} onRemoveSlotFile={actions.removeSlotFile}
               />
             ))}
           </PastLessonsSection>
@@ -2559,7 +2593,7 @@ function StudentView({ student, teacher, schedule, actions, products, ext }) {
             <div className="field-label">Цель и программа</div>
             <p className="body-text">{student.goal || "—"}</p>
             <div className="row-gap" style={{ marginTop: 6 }}>
-              <Pill tone="teal">{student.examTarget?.exam ? "🎯 " + student.examTarget.exam + (student.examTarget.targetScore ? " · цель " + student.examTarget.targetScore : "") + (student.examTarget.examDate ? " · " + formatDate(student.examTarget.examDate) : "") : "📘 Базовая программа"}</Pill>
+              <Pill tone="teal">{student.examTarget?.exam ? "🎯 " + student.examTarget.exam + (targetText(student.examTarget) ? " · цель " + targetText(student.examTarget) : "") + (student.examTarget.examDate ? " · " + formatDate(student.examTarget.examDate) : "") : "📘 Базовая программа"}</Pill>
               <span className="hint-text">Уровень: {student.startLevel} → <b>{student.currentLevel}</b></span>
             </div>
           </div>
@@ -2596,6 +2630,7 @@ function StudentView({ student, teacher, schedule, actions, products, ext }) {
       {tab === "lessons" && (
         <div className="card">
           <StudentLessons student={student} teacher={teacher} slots={mySlots} products={products} payRequests={ext.payRequests} actions={actions} />
+          <StudentClubs clubs={ext.clubs} student={student} subject={teacher.subject} payRequests={ext.payRequests} actions={actions} />
           <div className="field-block" style={{ marginTop: 18 }}>
             <div className="field-label">Календарь</div>
             <ScheduleTable slots={mySlots} students={[student]} teacherId={teacher.id} editable={false} actions={actions} mode="student" products={products} allTeachers={[teacher]} />
@@ -2767,6 +2802,7 @@ function AdminView({ department, teachers, students, schedule, sales, products, 
         <button className={tab === "roster" ? "tab active" : "tab"} onClick={() => setTab("roster")}><GraduationCap size={13} /> Ученики школы</button>
         <button className={tab === "groups" ? "tab active" : "tab"} onClick={() => setTab("groups")}><Users size={13} /> Пары и группы</button>
         <button className={tab === "self" ? "tab active" : "tab"} onClick={() => setTab("self")}>☂️ Сам, но не один</button>
+        {department === "language" && <button className={tab === "clubs" ? "tab active" : "tab"} onClick={() => setTab("clubs")}>🗣 Разговорные клубы</button>}
         <button className={tab === "umbrella" ? "tab active" : "tab"} onClick={() => setTab("umbrella")}>🌂 Под одним зонтом</button>
         <button className={tab === "library" ? "tab active" : "tab"} onClick={() => setTab("library")}><BookOpen size={13} /> Материалы</button>
         <button className={tab === "sales" ? "tab active" : "tab"} onClick={() => setTab("sales")}><ShoppingBag size={13} /> Магазин</button>
@@ -2775,6 +2811,11 @@ function AdminView({ department, teachers, students, schedule, sales, products, 
         </button>
       </div>
 
+      {tab === "clubs" && department === "language" && (
+        <div className="card">
+          <ClubsPanel clubs={ext.clubs} students={students} teachers={teachers} subjectMeta={SUBJECTS} langSubjects={SUBJECT_ORDER.language} actions={actions} />
+        </div>
+      )}
       {tab === "self" && (
         <div className="card">
           <SelfOverviewPanel students={students} teachers={teachers} slots={schedule} subjectMeta={SUBJECTS} actions={actions} />
@@ -2887,7 +2928,7 @@ function AdminView({ department, teachers, students, schedule, sales, products, 
                               <span><Users size={13} /> {active} активных · {myStudents.length} всего</span>
                               <span><Calendar size={13} /> {upcomingCount} предстоящих занятий</span>
                             </div>
-                            <PayrollCard teacher={t} slots={schedule} students={students} onSetRate={actions.setTeacherRate} />
+                            <PayrollCard teacher={t} slots={schedule} students={students} clubs={ext.clubs} onSetRate={actions.setTeacherRate} />
                             {myStudents.length > 0 && deleteArmedId === t.id && (
                               <div className="hint-text" style={{ color: "var(--danger)" }}>Нельзя удалить: есть ученики. Сначала переведите их к другому учителю.</div>
                             )}
@@ -3069,7 +3110,7 @@ function AdminView({ department, teachers, students, schedule, sales, products, 
         </div>
       )}
 
-      {tab === "sales" && <ShopPanel sales={sales} products={products} discountPercent={discountPercent} actions={actions} expenses={expenses} teachers={deptTeachers} students={students.filter((s) => deptTeachers.some((t) => t.id === s.teacherId))} schedule={schedule} allStudents={students} />}
+      {tab === "sales" && <ShopPanel sales={sales} products={products} discountPercent={discountPercent} actions={actions} expenses={expenses} teachers={deptTeachers} students={students.filter((s) => deptTeachers.some((t) => t.id === s.teacherId))} schedule={schedule} allStudents={students} clubs={ext.clubs} />}
 
       {tab === "messages" && (
         <div>
@@ -3162,7 +3203,7 @@ function fmtMoney(n) { return Math.round(n).toLocaleString("ru-RU") + " ₽"; }
 
 const MONTH_NAMES = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
 
-function ShopPanel({ sales, products, discountPercent, actions, students, expenses, teachers, schedule, allStudents }) {
+function ShopPanel({ sales, products, discountPercent, actions, students, expenses, teachers, schedule, allStudents, clubs }) {
   const now = new Date();
   const [viewYear, setViewYear] = useState(now.getFullYear());
   const [viewMonth, setViewMonth] = useState(now.getMonth());
@@ -3186,7 +3227,7 @@ function ShopPanel({ sales, products, discountPercent, actions, students, expens
   const monthSales = sales.filter((s) => s.date.startsWith(monthPrefix));
   const monthExpenses = (expenses || []).filter((e) => e.date.startsWith(monthPrefix));
   const monthTotal = monthSales.reduce((a, s) => a + s.amount, 0);
-  const lessonPayroll = (teachers || []).reduce((a, t) => a + teacherPayroll(t, schedule, allStudents || students, monthPrefix).total, 0);
+  const lessonPayroll = (teachers || []).reduce((a, t) => a + teacherPayroll(t, schedule, allStudents || students, monthPrefix, clubs).total, 0);
   const monthPayouts = monthExpenses.filter((e) => e.auto).reduce((a, e) => a + e.amount, 0) + lessonPayroll;
   const monthOtherExpenses = monthExpenses.filter((e) => !e.auto).reduce((a, e) => a + e.amount, 0);
   const monthExpenseTotal = monthPayouts + monthOtherExpenses;
@@ -3443,6 +3484,7 @@ export default function App({ session, onLogout }) {
   const [payRequests, setPayRequests] = useState([]);
   const [groups, setGroups] = useState([]);
   const [umbrellas, setUmbrellas] = useState([]);
+  const [clubs, setClubs] = useState([]);
 
   const persist = useCallback(async (key, value) => {
     try {
@@ -3468,6 +3510,8 @@ export default function App({ session, onLogout }) {
       const payRes = await loadStrict("su-payreq-v1");
       const grpRes = await loadStrict("su-groups-v1");
       setGroups(grpRes.value || []);
+      const clubRes = await loadStrict("su-clubs-v1");
+      setClubs(clubRes.value || []);
       const umRes = await loadStrict("su-umbrella-v1");
       setUmbrellas(umRes.value || seedUmbrellas);
       setLibrary(libRes.value || seedLibrary);
@@ -3533,6 +3577,7 @@ export default function App({ session, onLogout }) {
   const savePayRequests = (next) => { setPayRequests(next); persist("su-payreq-v1", next); };
   const saveGroups = (next) => { setGroups(next); persist("su-groups-v1", next); };
   const saveUmbrellas = (next) => { setUmbrellas(next); persist("su-umbrella-v1", next); };
+  const saveClubs = (next) => { setClubs(next); persist("su-clubs-v1", next); };
 
   const [reminderTick, setReminderTick] = useState(0);
   useEffect(() => {
@@ -3596,6 +3641,12 @@ export default function App({ session, onLogout }) {
       if (status === "link_sent") note("💳 Ссылка на оплату (" + r.label + "): " + extra.link + "\nПосле оплаты нажмите «Я оплатил(а)» в разделе «Мой прогресс».");
       if (status === "rejected") note("Запрос на оплату «" + r.label + "» отменён администратором. Если что-то не так, напишите здесь.");
       if (status !== "confirmed") return;
+      if (r.clubMeetingId) {
+        saveClubs(clubs.map((x) => (x.id === r.clubId ? { ...x, meetings: x.meetings.map((y) => (y.id === r.clubMeetingId ? { ...y, paidIds: [...new Set([...(y.paidIds || []), r.studentId])] } : y)) } : x)));
+        saveSales([...sales, { id: uid("sale"), date: isoDate(0), productId: "club", qty: 1, discounted: false, studentId: r.studentId, teacherId: r.teacherId || null, amount: r.amount || 0, payout: 0 }]);
+        note("✅ Оплата получена: " + r.label + ". Ссылка на встречу открыта в разделе «Занятия».");
+        return;
+      }
       if (r.slotId) {
         // One lesson paid: the lesson opens its link, no package changes.
         saveSchedule(schedule.map((sl) => (sl.id === r.slotId ? { ...sl, paid: true } : sl)));
@@ -3727,6 +3778,38 @@ export default function App({ session, onLogout }) {
       const now = Date.now();
       saveSchedule(schedule.map((sl) => (memberIds.includes(sl.studentId) && sl.type !== "trial" && new Date(sl.date + "T" + sl.time + ":00").getTime() > now ? { ...sl, format: "umbrella" } : sl)));
     },
+    createClub: (c) => saveClubs([...clubs, { id: uid("club"), ...c, meetings: [] }]),
+    removeClub: (id) => saveClubs(clubs.filter((c) => c.id !== id)),
+    updateClubMeeting: (clubId, mId, patch) => saveClubs(clubs.map((c) => (c.id === clubId ? { ...c, meetings: c.meetings.map((m) => (m.id === mId ? { ...m, ...patch } : m)) } : c))),
+    generateClubMeetings: (clubId, weeks) => {
+      const c = clubs.find((x) => x.id === clubId);
+      if (!c) return "";
+      const add = [];
+      for (let i = 0; i < weeks * 7; i++) {
+        const d = new Date(); d.setDate(d.getDate() + i);
+        const date = localDateStr(d);
+        if (((d.getDay() + 6) % 7) + 1 !== c.weekday || (c.meetings || []).some((m) => m.date === date)) continue;
+        if (new Date(date + "T" + c.time + ":00").getTime() < Date.now()) continue;
+        add.push({ id: uid("meet"), date, time: c.time, topic: "", studentIds: [], paidIds: [], attendedIds: [], status: "planned" });
+      }
+      if (!add.length) return "Новых встреч нет: на эти недели всё уже стоит.";
+      saveClubs(clubs.map((x) => (x.id === clubId ? { ...x, meetings: [...(x.meetings || []), ...add] } : x)));
+      return "✅ Поставлено встреч: " + add.length + " («" + c.name + "»).";
+    },
+    // Signing up also asks the admin for a payment link for this meeting.
+    clubSignUp: (clubId, mId, studentId) => {
+      const c = clubs.find((x) => x.id === clubId);
+      const m = c?.meetings.find((x) => x.id === mId);
+      if (!m || (m.studentIds || []).includes(studentId) || (m.studentIds || []).length >= c.capacity) return;
+      saveClubs(clubs.map((x) => (x.id === clubId ? { ...x, meetings: x.meetings.map((y) => (y.id === mId ? { ...y, studentIds: [...(y.studentIds || []), studentId] } : y)) } : x)));
+      savePayRequests([...payRequests, { id: uid("pay"), studentId, teacherId: c.teacherId, productId: "club", lessons: 1, label: "Разговорный клуб " + formatDate(m.date) + " в " + m.time, amount: CLUB_PRICE, note: "", clubId, clubMeetingId: mId, status: "new", link: "", at: new Date().toISOString() }]);
+    },
+    clubLeave: (clubId, mId, studentId) => {
+      saveClubs(clubs.map((x) => (x.id === clubId ? { ...x, meetings: x.meetings.map((y) => (y.id === mId ? { ...y, studentIds: (y.studentIds || []).filter((z) => z !== studentId), paidIds: (y.paidIds || []).filter((z) => z !== studentId) } : y)) } : x)));
+      savePayRequests(payRequests.map((r) => (r.clubMeetingId === mId && r.studentId === studentId && ["new", "link_sent", "paid"].includes(r.status) ? { ...r, status: "cancelled" } : r)));
+    },
+    toggleClubAttendance: (clubId, mId, studentId) => saveClubs(clubs.map((x) => (x.id === clubId ? { ...x, meetings: x.meetings.map((y) => (y.id === mId ? { ...y, attendedIds: (y.attendedIds || []).includes(studentId) ? y.attendedIds.filter((z) => z !== studentId) : [...(y.attendedIds || []), studentId] } : y)) } : x))),
+    setUmbrellaPlan: (umId, studentId, n) => saveUmbrellas(umbrellas.map((x) => (x.id === umId ? { ...x, plan: { ...(x.plan || {}), [studentId]: n } } : x))),
     addUmbrellaSubject: (umId, teacherId) => {
       const u = umbrellas.find((x) => x.id === umId);
       const t = teachers.find((x) => x.id === teacherId);
@@ -3848,6 +3931,8 @@ export default function App({ session, onLogout }) {
     cancelSlot: (slotId) => saveSchedule(schedule.map((sl) => sl.id === slotId ? { ...sl, status: "cancelled" } : sl)),
     rescheduleSlot: (slotId, newDate, newTime) => saveSchedule(schedule.map((sl) => sl.id === slotId ? { ...sl, history: [...sl.history, { date: sl.date, time: sl.time }], date: newDate, time: newTime, requested: null, status: "booked" } : sl)),
     updateSlotDetails: (slotId, { duration, type, trialName, format, isCheck }) => saveSchedule(schedule.map((sl) => sl.id === slotId ? { ...sl, duration, type, trialName: trialName || "", ...(format ? { format, formatSet: true } : {}), isCheck: !!isCheck } : sl)),
+    addSlotFile: (slotId, file) => saveSchedule(schedule.map((sl) => (sl.id === slotId ? { ...sl, lessonFiles: [...(sl.lessonFiles || []), file] } : sl))),
+    removeSlotFile: (slotId, idx) => saveSchedule(schedule.map((sl) => (sl.id === slotId ? { ...sl, lessonFiles: (sl.lessonFiles || []).filter((_, i) => i !== idx) } : sl))),
     addSlotTopic: (slotId, name) => saveSchedule(schedule.map((sl) => sl.id === slotId ? { ...sl, topicsCovered: [...(sl.topicsCovered || []), name] } : sl)),
     removeSlotTopic: (slotId, name) => saveSchedule(schedule.map((sl) => sl.id === slotId ? { ...sl, topicsCovered: (sl.topicsCovered || []).filter((n) => n !== name) } : sl)),
     setSlotMaterial: (slotId, text) => saveSchedule(schedule.map((sl) => sl.id === slotId ? { ...sl, lessonMaterial: text } : sl)),
@@ -3911,7 +3996,7 @@ export default function App({ session, onLogout }) {
     },
     addExpense: (date, category, amount, note) => saveExpenses([...expenses, { id: uid("exp"), date, category, amount: Number(amount) || 0, note: note || "" }]),
     removeExpense: (id) => saveExpenses(expenses.filter((x) => x.id !== id)),
-    resetDemo: () => { saveTeachers(seedTeachers); saveStudents(seedStudents); saveSchedule(seedSchedule); saveSales(seedSales); saveProducts(seedProducts); saveDiscount(seedDiscountPercent); saveExpenses([]); saveLibrary(seedLibrary); saveCalls([]); savePayRequests([]); saveGroups([]); saveUmbrellas(seedUmbrellas); setResetArmed(false); },
+    resetDemo: () => { saveTeachers(seedTeachers); saveStudents(seedStudents); saveSchedule(seedSchedule); saveSales(seedSales); saveProducts(seedProducts); saveDiscount(seedDiscountPercent); saveExpenses([]); saveLibrary(seedLibrary); saveCalls([]); savePayRequests([]); saveGroups([]); saveUmbrellas(seedUmbrellas); saveClubs([]); setResetArmed(false); },
   };
 
   async function runDiagnostics() {
@@ -3955,7 +4040,7 @@ export default function App({ session, onLogout }) {
   }
 
   function exportAllData() {
-    const payload = { teachers, students, schedule, sales, products, discountPercent, expenses, library, calls, payRequests, groups, umbrellas, exportedAt: new Date().toISOString() };
+    const payload = { teachers, students, schedule, sales, products, discountPercent, expenses, library, calls, payRequests, groups, umbrellas, clubs, exportedAt: new Date().toISOString() };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -3982,6 +4067,7 @@ export default function App({ session, onLogout }) {
       if (data.payRequests) savePayRequests(data.payRequests);
       if (data.groups) saveGroups(data.groups);
       if (data.umbrellas) saveUmbrellas(data.umbrellas);
+      if (data.clubs) saveClubs(data.clubs);
       setErrorMsg("");
       return true;
     } catch (e) {
@@ -4000,7 +4086,7 @@ export default function App({ session, onLogout }) {
     );
   }
 
-  const ext = { library, calls, payRequests, groups, umbrellas, students, teachers };
+  const ext = { library, calls, payRequests, groups, umbrellas, clubs, students, teachers };
   const currentTeacher = teachers.find((t) => t.id === asTeacherId && t.department === department) || teachers.filter((t) => t.department === department)[0];
   const currentStudent = students.find((s) => s.id === asStudentId) || null;
   const currentStudentTeacher = currentStudent ? teachers.find((t) => t.id === currentStudent.teacherId) : null;

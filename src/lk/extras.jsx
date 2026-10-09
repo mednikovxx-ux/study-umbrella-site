@@ -89,7 +89,6 @@ export function StudentOverview({ student, teacher, subjMeta, slots, payRequests
             <div className="ov-big">{pk.left} <span>из {pk.total} осталось</span></div>
             <div className="progress-track"><div className="progress-fill" style={{ width: Math.round(pk.used / pk.total * 100) + "%" }} /></div>
             <div className="ov-note">Пройдено {lessonsWord(pk.used)}{student.packageLabel && !um ? " · " + student.packageLabel : ""}</div>
-            {um && <UmbrellaBreakdown st={um} mineId={student.id} />}
           </> : <div className="ov-note">Пакет не оформлен: занятия оплачиваются по одному.</div>}
           {pk.total > 0 && pk.left <= 1 && <div className="ov-warn">{pk.left === 0 ? "Занятия в пакете закончились" : "Осталось последнее занятие"}: самое время продлить.</div>}
           <button className="btn-small accent" style={{ marginTop: 10 }} onClick={onPay}><CreditCard size={13} /> Оплатить / продлить</button>
@@ -109,6 +108,14 @@ export function StudentOverview({ student, teacher, subjMeta, slots, payRequests
           {lastChk && <div className="ov-note">Последняя проверка: {lastChk.title} — <b>{lastChk.achievedScore}/{lastChk.maxScore}</b></div>}
         </div>
       </div>
+
+      {um && (
+        <div className="ov-card">
+          <div className="ov-label">🌂 «Под одним зонтом»: как распределены занятия</div>
+          <div className="ov-note" style={{ marginTop: 0 }}>Один пакет на {lessonsWord(um.total)} для всех ваших предметов. Каждое занятие любого предмета списывается с общего остатка.</div>
+          <UmbrellaBreakdown st={um} mineId={student.id} />
+        </div>
+      )}
 
       {myReq.length > 0 && (
         <div className="ov-pay">
@@ -494,21 +501,27 @@ export function umbrellaStats(u, students, teachers, slots, subjectMeta) {
     const st = students.find((s) => s.id === id);
     const te = st && teachers.find((x) => x.id === st.teacherId);
     const used = (slots || []).filter((sl) => sl.studentId === id && sl.type === "regular" && sl.status !== "cancelled" && sl.date < t && (!u.assignedAt || sl.date >= u.assignedAt)).length;
-    return { id, subject: te?.subject, label: subjectMeta?.[te?.subject]?.label || "—", emoji: subjectMeta?.[te?.subject]?.emoji || "", teacher: te?.name || "—", used };
+    const plan = Number((u.plan || {})[id]) || 0;
+    return { id, subject: te?.subject, label: subjectMeta?.[te?.subject]?.label || "—", emoji: subjectMeta?.[te?.subject]?.emoji || "", teacher: te?.name || "—", used, plan, left: plan ? Math.max(0, plan - used) : null };
   });
   const used = rows.reduce((a, r) => a + r.used, 0);
-  return { rows, total: u.total || 0, used, left: Math.max(0, (u.total || 0) - used) };
+  const planned = rows.reduce((a, r) => a + r.plan, 0);
+  return { rows, total: u.total || 0, used, left: Math.max(0, (u.total || 0) - used), planned, unplanned: Math.max(0, (u.total || 0) - planned) };
 }
 
 function UmbrellaBreakdown({ st, mineId }) {
+  const mine = st.rows.find((r) => r.id === mineId);
   return (
-    <div className="um-rows">
+    <div className="um-table">
+      {mine && <div className="um-mine">Ваш предмет — {mine.emoji} {mine.label}: пройдено <b>{mine.used}</b>{mine.plan ? <> из <b>{mine.plan}</b> по плану, осталось <b>{mine.left}</b></> : " (распределение по предметам не задано)"}</div>}
+      <div className="um-row um-head"><span>Предмет</span><span>Преподаватель</span><span>Пройдено</span><span>По плану</span><span>Осталось</span></div>
       {st.rows.map((r) => (
         <div key={r.id} className={"um-row" + (r.id === mineId ? " mine" : "")}>
-          <span>{r.emoji} {r.label}</span><span className="muted-text">{r.teacher}</span><b>{lessonsWord(r.used)}</b>
+          <span>{r.emoji} {r.label}</span><span className="muted-text">{r.teacher}</span><span>{r.used}</span><span>{r.plan || "—"}</span><span>{r.left ?? "—"}</span>
         </div>
       ))}
-      <div className="um-total">Пакет {st.total}: пройдено {st.used}, осталось <b>{st.left}</b></div>
+      <div className="um-row um-sum"><span>Всего по пакету</span><span /><span>{st.used}</span><span>{st.total}</span><span>{st.left}</span></div>
+      {st.unplanned > 0 && st.planned > 0 && <div className="hint-text">Не распределено по предметам: {lessonsWord(st.unplanned)}.</div>}
     </div>
   );
 }
@@ -534,6 +547,7 @@ export function FormatPanel({ student, students, teachers, groups, umbrellas, sl
 
       {fmt === "umbrella" && (
         <div className="fmt-box">
+          {st && <div className="um-title">🌂 Комплексный пакет на {lessonsWord(st.total)}: {st.rows.map((r) => r.label).join(" + ")}</div>}
           {st ? <UmbrellaBreakdown st={st} mineId={student.id} /> : <div className="ov-note">Комплексный пакет ещё не собран.{canManage ? "" : " Его оформляет администратор: предметы, преподаватели и размер пакета."}</div>}
           {canManage && onOpenAdminTab && <button className="btn-small" onClick={() => onOpenAdminTab("umbrella")}>{st ? "Изменить пакет" : "Собрать пакет"} во вкладке «Под одним зонтом» →</button>}
         </div>
@@ -632,6 +646,13 @@ export function UmbrellaPanel({ umbrellas, students, teachers, slots, subjectMet
               </div>
             </div>
             <div className="progress-track" style={{ margin: "8px 0" }}><div className="progress-fill" style={{ width: (st.total ? Math.round(st.used / st.total * 100) : 0) + "%" }} /></div>
+            <div className="um-plan">
+              <span className="hint-text">Распределение по предметам (минимум 3 на предмет):</span>
+              {st.rows.map((r) => <label key={r.id} className="um-plan-item">{r.emoji} {r.label}<input type="number" min="0" className="mini-input" style={{ width: 64 }} value={r.plan || ""} placeholder="—" onChange={(e) => actions.setUmbrellaPlan(u.id, r.id, Number(e.target.value) || 0)} /></label>)}
+              <button className="btn-small" onClick={() => { const n = st.rows.length; st.rows.forEach((r, i) => actions.setUmbrellaPlan(u.id, r.id, Math.floor(st.total / n) + (i < st.total % n ? 1 : 0))); }}>Поровну</button>
+            </div>
+            {st.planned > st.total && <div className="ov-warn">По плану {st.planned}, а в пакете {st.total}: уменьшите распределение.</div>}
+            {st.rows.some((r) => r.plan && r.plan < 3) && <div className="ov-warn">На каждый предмет нужно минимум 3 занятия.</div>}
             <UmbrellaBreakdown st={st} />
             {st.rows.some((r) => r.used === 0) && st.left <= st.rows.length && <div className="ov-warn">Остаток заканчивается, а по некоторым предметам ещё не было занятий.</div>}
             <div className="row-gap" style={{ marginTop: 8, flexWrap: "wrap" }}>
@@ -807,10 +828,16 @@ const FORMAT_CSS = `
 .fmt-select { font:500 13px var(--font-ui, sans-serif); color:var(--ink, #1E2B2F); border:1px solid var(--border, #e2dccf); border-radius:8px; padding:4px 8px; background:#fff; cursor:pointer; }
 .fmt-select:hover { border-color:var(--accent, #2F6F73); }
 .fmt-panel > .hint-text { font-size:12px; }
-.um-rows { display:flex; flex-direction:column; gap:4px; margin-top:6px; }
-.um-row { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) auto; gap:8px; font-size:13px; padding:4px 0; border-bottom:1px solid rgba(30,43,47,.07); }
-.um-row.mine { font-weight:700; }
-.um-total { font-size:13px; margin-top:4px; }
+.um-table { display:flex; flex-direction:column; margin-top:6px; }
+.um-row { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1.2fr) 74px 74px 74px; gap:8px; font-size:13px; padding:5px 0; border-bottom:1px solid rgba(30,43,47,.07); }
+.um-row span:nth-child(n+3) { text-align:center; }
+.um-head { font:700 11px var(--font-ui, sans-serif); text-transform:uppercase; letter-spacing:.04em; color:#8a887f; }
+.um-row.mine { font-weight:700; background:rgba(47,111,115,.06); }
+.um-sum { font-weight:700; border-bottom:0; }
+.um-mine { font-size:13px; margin-bottom:6px; }
+.um-title { font-weight:700; font-size:14px; }
+.um-plan { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:8px 0; }
+.um-plan-item { display:inline-flex; gap:6px; align-items:center; font-size:13px; }
 .um-card { background:#fff; border:1.5px solid var(--line, #e2dccf); border-radius:18px; padding:14px 16px; }
 .fmt-box { margin-top:2px; background:transparent; border-left:3px solid var(--accent, #2F6F73); border-radius:0 !important; padding:2px 0 2px 10px !important; border-radius:14px; padding:10px 14px; display:flex; flex-direction:column; gap:6px; }
 .prog { display:flex; flex-direction:column; gap:6px; }
@@ -925,6 +952,8 @@ export function StudentLessons({ student, teacher, slots, products, payRequests,
               </div>
               {sl.status !== "cancelled" && <>
                 <div className="body-text">📚 Темы: {sl.topicsCovered?.length ? sl.topicsCovered.join(", ") : <span className="muted-text">преподаватель ещё не отметил</span>}</div>
+                {!(sl.lessonFiles || []).length && !sl.lessonMaterial && <div className="hint-text">Материалы к уроку появятся, когда преподаватель их прикрепит.</div>}
+                <LessonFiles slot={sl} />
                 {sl.lessonMaterial && <div className="body-text">📎 Материалы: {/^https?:\/\//.test(sl.lessonMaterial) ? <a href={sl.lessonMaterial} target="_blank" rel="noopener">{sl.lessonMaterial}</a> : sl.lessonMaterial}</div>}
                 {hw.length > 0 && <div className="body-text">📝 Домашнее задание: {hw.map((x) => x.title).join(", ")}</div>}
                 {chk.map((c) => <div key={c.id} className="body-text">🎯 {c.title}: <b>{c.achievedScore}/{c.maxScore}</b></div>)}
@@ -1050,7 +1079,7 @@ export function ExamTrajectory({ student, startDate }) {
       <div className="ch-title">🎯 Траектория к экзамену: {ex.exam}</div>
       <div className="ch-kpis">
         <span>Сейчас: <b>{last ? last.achievedScore + " / " + last.maxScore : "—"}</b></span>
-        <span>Цель: <b>{target ?? "не задана"}</b></span>
+        <span>Цель: <b>{targetText(ex) || "не задана"}</b></span>
         <span>Экзамен: <b>{ex.examDate ? fmtD(ex.examDate) : "дата не задана"}</b>{daysLeft !== null && daysLeft >= 0 ? " · через " + daysLeft + " дн." : ""}</span>
         {trend && <span>При текущем темпе к экзамену: <b>≈ {Math.round(trend.v2)}</b>{target ? (trend.v2 >= target ? " ✅ успеваем" : " — нужно ускориться") : ""}</span>}
       </div>
@@ -1161,15 +1190,16 @@ export const LESSON_KINDS = {
   pair: "👥 Пара",
   group: "👨‍👩‍👧 Мини-группа",
   trial: "🎓 Пробный",
+  club: "🗣 Разговорный клуб",
 };
-export const DEFAULT_RATES = { individual: 0, package: 0, self: 0, umbrella: 0, pair: 0, group: 0, trial: 0 };
+export const DEFAULT_RATES = { individual: 0, package: 0, self: 0, umbrella: 0, pair: 0, group: 0, trial: 0, club: 0 };
 // One-on-one lessons of a student with a package are paid at the package rate.
 export const kindForStudent = (st) => { const f = formatOf(st || {}); return f === "individual" && st?.packageTotal ? "package" : f; };
 
 export const slotKind = (sl, students) => sl.format || (sl.type === "trial" ? "trial" : sl.groupId ? ((students || []).find((s) => s.id === sl.studentId)?.format === "pair" ? "pair" : "group") : kindForStudent((students || []).find((s) => s.id === sl.studentId)));
 
 // Lessons that already took place in the month; one group lesson counts once.
-export function teacherPayroll(teacher, slots, students, monthPrefix) {
+export function teacherPayroll(teacher, slots, students, monthPrefix, clubs) {
   const now = Date.now();
   const seen = new Set();
   const done = (slots || []).filter((sl) => {
@@ -1180,16 +1210,18 @@ export function teacherPayroll(teacher, slots, students, monthPrefix) {
     return true;
   });
   const rates = { ...DEFAULT_RATES, ...(teacher.rates || {}) };
-  const rows = Object.keys(LESSON_KINDS).map((k) => { const n = done.filter((sl) => slotKind(sl, students) === k).length; return { kind: k, n, rate: rates[k] || 0, sum: n * (rates[k] || 0) }; });
-  return { rows, lessons: done.length, total: rows.reduce((a, r) => a + r.sum, 0), missing: rows.some((r) => r.n > 0 && !r.rate) };
+  // A club meeting that took place with at least one participant.
+  const clubN = (clubs || []).filter((c) => c.teacherId === teacher.id).reduce((a, c) => a + (c.meetings || []).filter((m) => m.status !== "cancelled" && m.date.startsWith(monthPrefix) && new Date(m.date + "T" + m.time + ":00").getTime() < now && (m.studentIds || []).length > 0).length, 0);
+  const rows = Object.keys(LESSON_KINDS).map((k) => { const n = k === "club" ? clubN : done.filter((sl) => slotKind(sl, students) === k).length; return { kind: k, n, rate: rates[k] || 0, sum: n * (rates[k] || 0) }; });
+  return { rows, lessons: done.length + clubN, total: rows.reduce((a, r) => a + r.sum, 0), missing: rows.some((r) => r.n > 0 && !r.rate) };
 }
 
 export const monthPrefixOf = (d = new Date()) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
 
-export function PayrollCard({ teacher, slots, students, onSetRate }) {
+export function PayrollCard({ teacher, slots, students, onSetRate, clubs }) {
   const [month, setMonth] = useState(0);
   const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() + month);
-  const pr = teacherPayroll(teacher, slots, students, monthPrefixOf(d));
+  const pr = teacherPayroll(teacher, slots, students, monthPrefixOf(d), clubs);
   const rates = { ...DEFAULT_RATES, ...(teacher.rates || {}) };
   const noRates = !Object.values(teacher.rates || {}).some(Boolean);
   return (
@@ -1363,7 +1395,8 @@ export function GoalMarker({ student, levels }) {
       <div className="goal-arrow">→</div>
       <div className="goal-step aim">
         <div className="goal-lbl">🏁 Желаемый результат</div>
-        <div className="goal-val">{student.targetResult || (ex ? ex.exam + (ex.targetScore ? " на " + ex.targetScore : "") : "Преподаватель уточнит вместе с вами")}</div>
+        <div className="goal-val">{ex && targetText(ex) ? ex.exam + ": " + targetText(ex) : student.targetResult || (ex ? ex.exam : "Преподаватель уточнит вместе с вами")}</div>
+        {ex && targetText(ex) && student.targetResult && <div className="goal-sub">{student.targetResult}</div>}
         <div className="goal-sub">{[target && "Уровень-цель: " + target, ex?.examDate && "Экзамен: " + fmtD(ex.examDate)].filter(Boolean).join(" · ")}</div>
       </div>
     </div>
@@ -1381,7 +1414,6 @@ export const GOAL_CSS = `
 .goal-arrow { align-self:center; font-size:20px; color:#8a887f; }
 @media (max-width: 900px) { .goal-mk { grid-template-columns:minmax(0,1fr); } .goal-arrow { transform:rotate(90deg); justify-self:center; } }
 `;
-export const EXTRA_CSS = EXTRA_CSS_BASE + FORMAT_CSS + LESSONS_CSS + CHARTS_CSS + PAY_CSS + SELF_CSS + GOAL_CSS;
 
 /* -------------------- «Сам, но не один»: admin section -------------------- */
 
@@ -1438,3 +1470,225 @@ export function SelfOverviewPanel({ students, teachers, slots, subjectMeta, acti
     </div>
   );
 }
+
+/* ------------------------- exam targets: score ranges ------------------------- */
+
+const LANG_LEVELS = ["A2", "B1", "B2", "C1", "C2"];
+export const EXAM_TARGETS = {
+  "ЕГЭ": { hint: "баллов", presets: ["60–69", "70–79", "80–89", "90–100"] },
+  "ОГЭ": { hint: "", presets: ["Оценка «3»", "Оценка «4»", "Оценка «5»"] },
+  IELTS: { hint: "band", presets: ["5.5", "6.0–6.5", "7.0–7.5", "8.0+"] },
+  TOEFL: { hint: "баллов из 120", presets: ["60–79", "80–99", "100–120"] },
+  "Cambridge B2 First (FCE)": { hint: "Cambridge Scale", presets: ["B2: 160–172", "Grade B: 173–179", "Grade A: 180–190"] },
+  CAE: { hint: "Cambridge Scale", presets: ["C1: 180–192", "Grade B: 193–199", "Grade A: 200–210"] },
+  DELE: { hint: "уровень", presets: LANG_LEVELS },
+  SIELE: { hint: "уровень", presets: ["A2", "B1", "B2", "C1"] },
+  CILS: { hint: "уровень", presets: LANG_LEVELS },
+  CELI: { hint: "уровень", presets: LANG_LEVELS },
+  PLIDA: { hint: "уровень", presets: LANG_LEVELS },
+  HSK: { hint: "уровень", presets: ["HSK 3", "HSK 4", "HSK 5", "HSK 6"] },
+  TOPIK: { hint: "уровень", presets: ["TOPIK 2", "TOPIK 3", "TOPIK 4", "TOPIK 5", "TOPIK 6"] },
+  "TYS (Yunus Emre)": { hint: "уровень", presets: ["A2", "B1", "B2", "C1"] },
+  "TÖMER": { hint: "уровень", presets: ["A2", "B1", "B2", "C1"] },
+};
+export const targetText = (ex) => ex ? (ex.targetLabel || ex.targetScore || "") : "";
+// The first number of a range is the line on the chart («80–89» → 80, «6.0–6.5» → 6).
+const firstNumber = (t) => { const m = String(t).replace(",", ".").match(/\d+(\.\d+)?/); return m ? m[0] : ""; };
+
+export function TargetPicker({ examTarget, onChange }) {
+  const cfg = EXAM_TARGETS[examTarget.exam] || { hint: "", presets: [] };
+  const cur = targetText(examTarget);
+  const [own, setOwn] = useState(cfg.presets.includes(cur) ? "" : cur);
+  const set = (label) => onChange({ ...examTarget, targetLabel: label, targetScore: /оценка|^[A-C][12]$|HSK|TOPIK/i.test(label) ? "" : firstNumber(label) });
+  return (
+    <div className="tp">
+      <span className="hint-text">Желаемый результат{cfg.hint ? " (" + cfg.hint + ")" : ""}:</span>
+      {cfg.presets.map((p) => <button key={p} className={"btn-small" + (cur === p ? " accent" : "")} onClick={() => { setOwn(""); set(p); }}>{p}</button>)}
+      <input className="mini-input" style={{ width: 150 }} placeholder="Своё, например 85+" value={own} onChange={(e) => { setOwn(e.target.value); set(e.target.value); }} />
+    </div>
+  );
+}
+
+/* --------------------------- lesson files (read-only) --------------------------- */
+
+export function LessonFiles({ slot }) {
+  const files = slot.lessonFiles || [];
+  if (!files.length) return null;
+  return (
+    <div className="lf">
+      {files.map((f, i) => f.url ? <a key={i} href={f.url} target="_blank" rel="noopener" className="lf-item">🔗 {f.name || f.url.replace(/^https?:\/\//, "").slice(0, 40)}</a>
+        : (f.type || "").startsWith("audio/") ? <audio key={i} controls src={f.dataUrl} style={{ maxWidth: 260 }} />
+        : (f.type || "").startsWith("video/") ? <video key={i} controls src={f.dataUrl} style={{ maxWidth: 300, borderRadius: 10 }} />
+        : (f.type || "").startsWith("image/") ? <a key={i} href={f.dataUrl} target="_blank" rel="noopener"><img src={f.dataUrl} alt={f.name} className="lf-img" /></a>
+        : <a key={i} href={f.dataUrl} download={f.name} className="lf-item">📎 {f.name}</a>)}
+    </div>
+  );
+}
+
+export const TP_CSS = `
+.tp { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:8px; }
+.lf { display:flex; flex-wrap:wrap; gap:8px; align-items:flex-start; margin-top:4px; }
+.lf-item { font-size:13px; background:#f3eee4; border-radius:8px; padding:3px 9px; text-decoration:none; color:inherit; }
+.lf-img { width:72px; height:72px; object-fit:cover; border-radius:8px; }
+`;
+
+/* ------------------------------ speaking clubs ------------------------------ */
+
+export const CLUB_PRICE = 1000;
+const clubWhen = (c) => (c.weekday ? WEEKDAYS[c.weekday - 1] + " " + c.time : "время не задано");
+const meetStart = (m) => new Date(m.date + "T" + m.time + ":00").getTime();
+
+// Admin: clubs, their weekly time and meetings with topics and participants.
+export function ClubsPanel({ clubs, students, teachers, subjectMeta, langSubjects, actions }) {
+  const [form, setForm] = useState(null);
+  const [weeks, setWeeks] = useState(4);
+  const [msg, setMsg] = useState("");
+  const langTeachers = teachers.filter((t) => langSubjects.includes(t.subject));
+  return (
+    <div className="lib">
+      <div className="row-gap" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
+        <div>
+          <h3 className="lib-title">🗣 Разговорные клубы</h3>
+          <div className="hint-text">90 минут живого разговора на языке, 4–6 человек, раз в неделю. {CLUB_PRICE.toLocaleString("ru-RU")} ₽ за встречу, абонемент не нужен: ученики записываются на конкретную встречу в кабинете.</div>
+        </div>
+        {!form && <button className="btn-small accent" onClick={() => setForm({ name: "", subject: langSubjects[0], teacherId: langTeachers.find((t) => t.subject === langSubjects[0])?.id || "", weekday: 6, time: "12:00", capacity: 6, link: "" })}><Plus size={13} /> Новый клуб</button>}
+      </div>
+      {msg && <div className="ov-note" role="status">{msg}</div>}
+      {form && (
+        <div className="add-panel lib-form">
+          <div className="row-gap" style={{ flexWrap: "wrap" }}>
+            <select className="mini-select" value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value, teacherId: langTeachers.find((t) => t.subject === e.target.value)?.id || "" })}>{langSubjects.map((k) => <option key={k} value={k}>{subjectMeta[k].emoji} {subjectMeta[k].label}</option>)}</select>
+            <select className="mini-select" value={form.teacherId} onChange={(e) => setForm({ ...form, teacherId: e.target.value })}>{langTeachers.filter((t) => t.subject === form.subject).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}{!langTeachers.some((t) => t.subject === form.subject) && <option value="">нет преподавателя</option>}</select>
+            <input className="mini-input" placeholder="Название, например «Speaking Club B1+»" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          </div>
+          <div className="row-gap" style={{ flexWrap: "wrap" }}>
+            <select className="mini-select" value={form.weekday} onChange={(e) => setForm({ ...form, weekday: Number(e.target.value) })}>{WEEKDAYS.map((w, i) => <option key={i} value={i + 1}>{w}</option>)}</select>
+            <input type="time" className="mini-input" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} />
+            <label className="hint-text">мест <input type="number" min="2" max="8" className="mini-input" style={{ width: 60 }} value={form.capacity} onChange={(e) => setForm({ ...form, capacity: Number(e.target.value) || 6 })} /></label>
+            <input className="mini-input wide" placeholder="Ссылка на встречу (Телемост, Zoom)" value={form.link} onChange={(e) => setForm({ ...form, link: e.target.value })} />
+          </div>
+          <div className="row-gap" style={{ justifyContent: "flex-end" }}>
+            <button className="btn-small" onClick={() => setForm(null)}>Отмена</button>
+            <button className="btn-small accent" disabled={!form.teacherId} onClick={() => { actions.createClub({ ...form, name: form.name.trim() || "Разговорный клуб: " + subjectMeta[form.subject].label }); setForm(null); }}><Check size={13} /> Создать клуб</button>
+          </div>
+        </div>
+      )}
+      {(clubs || []).length === 0 && !form && <div className="muted-text">Клубов пока нет.</div>}
+      {(clubs || []).map((c) => {
+        const t = teachers.find((x) => x.id === c.teacherId);
+        const upcoming = (c.meetings || []).filter((m) => meetStart(m) > Date.now() - 2 * 36e5).sort((a, b) => meetStart(a) - meetStart(b));
+        return (
+          <div key={c.id} className="um-card">
+            <div className="row-gap" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
+              <div><b style={{ fontSize: 16 }}>🗣 {c.name}</b> <span className="muted-text">· {subjectMeta[c.subject]?.emoji} {t?.name} · {clubWhen(c)} · до {c.capacity} человек</span></div>
+              <div className="row-gap">
+                <select className="mini-select" value={weeks} onChange={(e) => setWeeks(Number(e.target.value))}>{[1, 2, 4, 8].map((n) => <option key={n} value={n}>на {n} нед.</option>)}</select>
+                <button className="btn-small accent" onClick={() => setMsg(actions.generateClubMeetings(c.id, weeks))}>Поставить встречи</button>
+                <button className="btn-small danger" onClick={() => { if (window.confirm("Удалить клуб «" + c.name + "»?")) actions.removeClub(c.id); }}>Удалить</button>
+              </div>
+            </div>
+            {upcoming.length === 0 && <div className="hint-text" style={{ marginTop: 6 }}>Встреч пока нет: нажмите «Поставить встречи».</div>}
+            {upcoming.slice(0, 6).map((m) => <ClubMeetingRow key={m.id} club={c} m={m} students={students} actions={actions} canEdit />)}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ClubMeetingRow({ club, m, students, actions, canEdit }) {
+  const [topic, setTopic] = useState(m.topic || "");
+  const past = meetStart(m) < Date.now();
+  return (
+    <div className={"club-meet" + (m.status === "cancelled" ? " cancelled" : "")}>
+      <div className="row-gap" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
+        <b>{fmtD(m.date)} · {m.time}</b>
+        <span className="muted-text">{(m.studentIds || []).length} из {club.capacity} мест{m.status === "cancelled" ? " · отменена" : ""}</span>
+      </div>
+      {canEdit ? <input className="mini-input wide" placeholder="Тема встречи, например «Travel stories»" value={topic} onChange={(e) => setTopic(e.target.value)} onBlur={() => topic !== (m.topic || "") && actions.updateClubMeeting(club.id, m.id, { topic })} />
+        : m.topic && <div className="body-text">Тема: {m.topic}</div>}
+      <div className="club-people">
+        {(m.studentIds || []).length === 0 && <span className="hint-text">Пока никто не записался</span>}
+        {(m.studentIds || []).map((id) => {
+          const st = students.find((s) => s.id === id);
+          const paid = (m.paidIds || []).includes(id);
+          const came = (m.attendedIds || []).includes(id);
+          return (
+            <span key={id} className={"club-person" + (paid ? " paid" : "")} title={paid ? "оплачено" : "не оплачено"}>
+              {st?.name || "—"} {paid ? "✓" : "💳"}
+              {canEdit && past && <label className="hint-text" style={{ marginLeft: 4 }}><input type="checkbox" checked={came} onChange={() => actions.toggleClubAttendance(club.id, m.id, id)} /> был(а)</label>}
+            </span>
+          );
+        })}
+      </div>
+      {canEdit && m.status !== "cancelled" && !past && <button className="btn-small" onClick={() => actions.updateClubMeeting(club.id, m.id, { status: "cancelled" })}>Отменить встречу</button>}
+    </div>
+  );
+}
+
+// Teacher: own clubs in «Расписание», topics and who came.
+export function TeacherClubs({ clubs, teacher, students, actions }) {
+  const mine = (clubs || []).filter((c) => c.teacherId === teacher.id);
+  if (!mine.length) return null;
+  return (
+    <div className="lib" style={{ marginBottom: 16 }}>
+      <h3 className="lib-title">🗣 Мои разговорные клубы</h3>
+      {mine.map((c) => {
+        const ms = (c.meetings || []).filter((m) => meetStart(m) > Date.now() - 14 * 864e5).sort((a, b) => meetStart(a) - meetStart(b));
+        return (
+          <div key={c.id} className="um-card">
+            <div><b>{c.name}</b> <span className="muted-text">· {clubWhen(c)}{c.link ? " · " : ""}{c.link && <a href={c.link} target="_blank" rel="noopener">ссылка на встречу</a>}</span></div>
+            {ms.length === 0 && <div className="hint-text">Встречи ставит администратор.</div>}
+            {ms.slice(0, 5).map((m) => <ClubMeetingRow key={m.id} club={c} m={m} students={students} actions={actions} canEdit />)}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Student: sign up for a meeting of their language and pay for it.
+export function StudentClubs({ clubs, student, subject, payRequests, actions }) {
+  const list = (clubs || []).filter((c) => c.subject === subject);
+  if (!list.length) return null;
+  const now = Date.now();
+  return (
+    <div className="lessons" style={{ marginTop: 16 }}>
+      <div className="lib-title" style={{ fontSize: 18 }}>🗣 Разговорный клуб</div>
+      <div className="hint-text">90 минут живого разговора, 4–6 человек. {CLUB_PRICE.toLocaleString("ru-RU")} ₽ за встречу, приходите, когда удобно. Оплатить нужно не позже чем за {PAY_DEADLINE_H} ч, тогда откроется ссылка.</div>
+      {list.map((c) => (c.meetings || []).filter((m) => meetStart(m) > now && m.status !== "cancelled").sort((a, b) => meetStart(a) - meetStart(b)).slice(0, 4).map((m) => {
+        const inside = (m.studentIds || []).includes(student.id);
+        const paid = (m.paidIds || []).includes(student.id);
+        const full = (m.studentIds || []).length >= c.capacity;
+        const h = (meetStart(m) - now) / 36e5;
+        const req = (payRequests || []).find((r) => r.clubMeetingId === m.id && r.studentId === student.id && ["new", "link_sent", "paid"].includes(r.status));
+        return (
+          <div key={m.id} className={"lesson-row" + (paid ? " paid" : "")}>
+            <div className="lesson-main">
+              <div className="lesson-when">{fmtD(m.date)} · {m.time} <span className="muted-text">· {c.name}</span></div>
+              {m.topic && <div className="hint-text">Тема: {m.topic}</div>}
+              <div className="hint-text">Свободно мест: {Math.max(0, c.capacity - (m.studentIds || []).length)} из {c.capacity}</div>
+              {inside && <div className={paid ? "st-ok" : "st-wait"}>{paid ? "✅ Вы записаны, оплачено" : req ? (req.status === "link_sent" ? "Ссылка на оплату готова" : req.status === "paid" ? "Ждём подтверждения оплаты" : "Запрос на оплату отправлен") : "Вы записаны, осталось оплатить"}</div>}
+            </div>
+            <div className="lesson-actions">
+              {!inside && <button className="btn-small accent" disabled={full || h <= PAY_DEADLINE_H} onClick={() => actions.clubSignUp(c.id, m.id, student.id)}>{full ? "Мест нет" : "Записаться · " + rub(CLUB_PRICE)}</button>}
+              {inside && paid && c.link && <a className="btn-small accent" href={c.link} target="_blank" rel="noopener"><ExternalLink size={13} /> Войти на встречу</a>}
+              {req && req.status === "link_sent" && req.link && <a className="btn-small accent" href={req.link} target="_blank" rel="noopener"><CreditCard size={13} /> Оплатить</a>}
+              {req && (req.status === "new" || req.status === "link_sent") && <button className="btn-small" onClick={() => actions.payRequestAction(req.id, "paid")}><Check size={13} /> Я оплатил(а)</button>}
+              {inside && h > CHANGE_DEADLINE_H && <button className="btn-small" onClick={() => actions.clubLeave(c.id, m.id, student.id)}>Отменить запись</button>}
+            </div>
+          </div>
+        );
+      }))}
+    </div>
+  );
+}
+
+export const CLUB_CSS = `
+.club-meet { border-top:1px dashed var(--line, #e2dccf); margin-top:8px; padding-top:8px; display:flex; flex-direction:column; gap:6px; }
+.club-meet.cancelled { opacity:.55; }
+.club-people { display:flex; flex-wrap:wrap; gap:6px; }
+.club-person { font-size:12px; background:#fbf1d3; border-radius:999px; padding:2px 10px; }
+.club-person.paid { background:#e3efee; }
+`;
+export const EXTRA_CSS = EXTRA_CSS_BASE + FORMAT_CSS + LESSONS_CSS + CHARTS_CSS + PAY_CSS + SELF_CSS + GOAL_CSS + TP_CSS + CLUB_CSS;

@@ -26,6 +26,8 @@
 - `npm run build` — собрать страницы и кабинет.
 - `npm start` — открыть сайт локально: http://localhost:8080
 
+- `tools/publish_pages.sh` — обновить демо на GitHub Pages (ветка gh-pages): https://mednikovxx-ux.github.io/study-umbrella-site/ — запускать после изменений. Вход администратора в демо не работает (контактов владельца там нет).
+
 ## Бренд
 
 Шрифты: Kyiv*Type Serif Bold — заголовки (© Dmitry Rastvortsev, бесплатный), Onest — текст, Caveat — рукописные пометки (одна на экран), Poppins — только логотип (нет кириллицы).

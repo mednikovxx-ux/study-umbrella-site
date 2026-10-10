@@ -56,6 +56,7 @@
 <!-- ПОДКЛЮЧИТЬ при запуске: Яндекс.Метрика (вставить код счётчика сюда) и подтверждение в Яндекс.Вебмастере:
 <meta name="yandex-verification" content="КОД"> -->
 <link rel="stylesheet" href="/css/main.css">
+<link rel="preload" as="image" type="image/webp" imagesrcset="/img/hero-640.webp 640w, /img/hero.webp 1122w" imagesizes="(max-width: 900px) 92vw, 44vw">
 </head>
 <body>
 
@@ -98,19 +99,19 @@
 <section class="hero" aria-labelledby="h1">
  <div class="wrap">
   <div class="hero-text">
-   <h1 id="h1"><span class="pill seo">Онлайн-школа · языки и&nbsp;подготовка к&nbsp;ОГЭ и&nbsp;ЕГЭ</span><span class="seo-gap"></span>Языки и ЕГЭ —<br><span class="accent">под одним зонтом</span></h1>
+   <h1 id="h1"><span class="pill seo">Онлайн-школа · языки и <span class="nowrap">подготовка к ОГЭ и ЕГЭ</span></span><span class="seo-gap"></span>Языки и ЕГЭ —<br><span class="accent">под одним зонтом</span></h1>
    <p class="sub">Свой преподаватель под каждую задачу и письменный план после диагностики. Не сошлись с преподавателем — подберём другого, оплаченные занятия сохранятся. Учимся понимать, а не зубрить.</p>
    <p class="q">С чего начнём?</p>
    <div class="choices">
     <div class="choice main">
      <div class="choice-top"><span class="pill teal">Если хотите попробовать</span><span class="price free">0 ₽</span></div>
-     <h3>Пробное&nbsp;занятие · 30&nbsp;минут</h3>
+     <h3>Пробное занятие<span class="h3-sub">30 минут, онлайн</span></h3>
      <p>Знакомитесь с преподавателем, немного занимаетесь и решаете, хочется ли продолжать. До покупки пакета.</p>
      <a class="btn primary wide" href="#zayavka" data-pick="probnoe">Записаться на пробное</a>
     </div>
     <div class="choice">
      <div class="choice-top"><span class="pill butter">Если нужен точный старт</span><span class="price">2 000 ₽</span></div>
-     <h3>Диагностика&nbsp;·&nbsp;90&nbsp;минут</h3>
+     <h3>Диагностика<span class="h3-sub">90 минут + письменный план</span></h3>
      <p>Тест по блокам, устная часть, разбор пробелов и письменный план. 2 000 ₽ вычитаем из первого пакета, если оформить его в течение 3 дней.</p>
      <a class="btn secondary wide" href="#zayavka" data-pick="diagnostika">Записаться на диагностику</a>
     </div>
@@ -123,11 +124,10 @@
   </div>
   <div class="visual">
    <p class="handnote" aria-hidden="true">понимай, а не зубри</p>
-   <div class="canopy" id="canopy">
-    <div class="sun"></div>
-    <img class="hero-photo" src="/img/hero.png" width="1200" height="1600" alt="Преподаватель держит зонт над учеником с учебником" onerror="this.parentNode.classList.add('noimg')">
-    <div class="fallback"><img src="/img/mark-white.png" width="189" height="192" alt=""></div>
-   </div>
+   <picture class="hero-frame">
+    <source type="image/webp" srcset="/img/hero-640.webp 640w, /img/hero.webp 1122w" sizes="(max-width: 900px) 92vw, 44vw">
+    <img class="hero-pic" src="/img/hero.jpg" width="1122" height="1402" fetchpriority="high" alt="Под красным зонтом Study Umbrella: стол с учебниками по английскому, испанскому, итальянскому, турецкому, китайскому, корейскому, истории, русскому языку и обществознанию">
+   </picture>
   </div>
  </div>
 </section>

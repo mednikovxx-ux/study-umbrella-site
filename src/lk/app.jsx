@@ -1008,59 +1008,69 @@ function VoiceRecordButton({ onRecorded }) {
   );
 }
 
-function MessageBubble({ m, isMine, who, role, onToggleReaction }) {
+const ROLE_TONE = { teacher: "tone-teacher", student: "tone-student", admin: "tone-admin" };
+const dayLabel = (iso) => {
+  const d = new Date(iso); const t = new Date(); const y = new Date(); y.setDate(t.getDate() - 1);
+  const same = (a, b) => a.toDateString() === b.toDateString();
+  return same(d, t) ? "Сегодня" : same(d, y) ? "Вчера" : d.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: d.getFullYear() === t.getFullYear() ? undefined : "numeric" });
+};
+const timeOf = (iso) => new Date(iso).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+
+function MessageBubble({ m, isMine, who, role, onToggleReaction, first, last }) {
   const [showReactions, setShowReactions] = useState(false);
   const pressTimer = React.useRef(null);
   const reactions = m.reactions || {};
-
-  function startPress() {
-    pressTimer.current = setTimeout(() => setShowReactions(true), 450);
-  }
-  function endPress() {
-    if (pressTimer.current) clearTimeout(pressTimer.current);
-  }
+  const startPress = () => { pressTimer.current = setTimeout(() => setShowReactions(true), 450); };
+  const endPress = () => { if (pressTimer.current) clearTimeout(pressTimer.current); };
 
   return (
-    <div className={"chat-row " + (isMine ? "mine" : "theirs")}>
-      {!isMine && <Avatar name={who.name} photo={who.photo} size={26} />}
-      {isMine && onToggleReaction && <button type="button" className="react-open" title="Ответить реакцией" aria-label="Ответить реакцией" onClick={() => setShowReactions((v) => !v)}>🙂</button>}
+    <div className={"chat-row " + (isMine ? "mine" : "theirs") + (last ? " last" : "")}>
+      <div className={"chat-ava " + (ROLE_TONE[who.roleKey] || "")}>{last ? <Avatar name={who.name} photo={who.photo} size={34} /> : null}</div>
       <div className="chat-bubble-wrap">
+        {first && <div className="chat-name">{isMine ? "Вы" : who.name}</div>}
         <div
-          className={"chat-bubble " + (isMine ? "mine" : "theirs")}
+          className={"chat-bubble " + (isMine ? "mine" : "theirs") + (first ? " first" : "") + (last ? " last" : "")}
           onMouseDown={startPress} onMouseUp={endPress} onMouseLeave={endPress}
           onTouchStart={startPress} onTouchEnd={endPress}
-          onClick={() => { if (showReactions) setShowReactions(false); }}
         >
-          {m.text && <div>{m.text}</div>}
-          {m.attachment && (m.attachment.type || "").startsWith("audio/") ? (
-            <audio controls src={m.attachment.dataUrl} style={{ maxWidth: 220, marginTop: 4 }} />
-          ) : (
-            m.attachment && <AttachmentView attachment={m.attachment} />
-          )}
-          <div className="chat-time">{formatDateTime(m.at)}</div>
-        </div>
-        {Object.keys(reactions).length > 0 && !showReactions && (
-          <div className="chat-reactions-summary">
-            {Object.values(reactions).map((emoji, i) => <span key={i}>{emoji}</span>)}
+          {m.text && <div className="chat-text">{m.text}</div>}
+          {m.attachment && <div className="chat-att"><AttachmentView attachment={m.attachment} /></div>}
+          <div className="chat-meta">
+            {onToggleReaction && <button type="button" className="react-open" title="Ответить реакцией" aria-label="Ответить реакцией" onClick={() => setShowReactions((v) => !v)}>🙂</button>}
+            <span className="chat-time">{timeOf(m.at)}</span>
           </div>
+        </div>
+        {Object.keys(reactions).length > 0 && (
+          <div className="chat-reactions-summary">{Object.entries(reactions).map(([k, emoji]) => <span key={k} title={k === "teacher" ? "Преподаватель" : k === "student" ? "Ученик" : "Администрация"}>{emoji}</span>)}</div>
         )}
         {showReactions && (
           <div className="chat-reactions">
-            {MESSAGE_REACTIONS.map((emoji) => {
-              const mineReacted = reactions[role] === emoji;
-              return (
-                <button key={emoji} className={"reaction-btn" + (mineReacted ? " active" : "")} onClick={() => { onToggleReaction(m.id, emoji); setShowReactions(false); }}>
-                  {emoji}
-                </button>
-              );
-            })}
+            {MESSAGE_REACTIONS.map((emoji) => (
+              <button key={emoji} className={"reaction-btn" + (reactions[role] === emoji ? " active" : "")} onClick={() => { onToggleReaction(m.id, emoji); setShowReactions(false); }}>{emoji}</button>
+            ))}
           </div>
         )}
       </div>
-      {!isMine && onToggleReaction && <button type="button" className="react-open" title="Ответить реакцией" aria-label="Ответить реакцией" onClick={() => setShowReactions((v) => !v)}>🙂</button>}
-      {isMine && <Avatar name={who.name} photo={who.photo} size={26} />}
     </div>
   );
+}
+
+// Messages with day separators; a run of messages from one person shows the name once and the avatar on the last one.
+function ChatList({ messages, role, whoOf, onToggleReaction }) {
+  const list = messages || [];
+  return list.map((m, i) => {
+    const prev = list[i - 1], next = list[i + 1];
+    const newDay = !prev || new Date(prev.at).toDateString() !== new Date(m.at).toDateString();
+    const nextNewDay = !next || new Date(next.at).toDateString() !== new Date(m.at).toDateString();
+    const first = newDay || prev.sender !== m.sender || new Date(m.at) - new Date(prev.at) > 10 * 6e4;
+    const last = nextNewDay || next.sender !== m.sender || new Date(next.at) - new Date(m.at) > 10 * 6e4;
+    return (
+      <React.Fragment key={m.id}>
+        {newDay && <div className="chat-day"><span>{dayLabel(m.at)}</span></div>}
+        <MessageBubble m={m} isMine={m.sender === role} who={whoOf(m)} role={role} onToggleReaction={onToggleReaction} first={first} last={last} />
+      </React.Fragment>
+    );
+  });
 }
 
 function SimpleChatPanel({ messages, onSend, onToggleReaction, role, canAct, selfName, selfPhoto, otherName, otherPhoto, otherRoleKey, placeholder }) {
@@ -1084,11 +1094,8 @@ function SimpleChatPanel({ messages, onSend, onToggleReaction, role, canAct, sel
     <div>
       <div className="chat-box" ref={boxRef}>
         {list.length === 0 && <div className="muted-text" style={{ padding: "10px 0" }}>Сообщений пока нет</div>}
-        {list.map((m) => {
-          const isMine = m.sender === role;
-          const who = m.sender === role ? { name: selfName, photo: selfPhoto } : { name: otherName, photo: otherPhoto };
-          return <MessageBubble key={m.id} m={m} isMine={isMine} who={who} role={role} onToggleReaction={onToggleReaction} />;
-        })}
+        <ChatList messages={list} role={role} onToggleReaction={onToggleReaction}
+          whoOf={(m) => (m.sender === role ? { name: selfName, photo: selfPhoto, roleKey: role } : { name: otherName, photo: otherPhoto, roleKey: m.sender })} />
       </div>
       {canAct && (
         <div>
@@ -1143,11 +1150,8 @@ function MessagePanel({ student, actions, role, canAct, teacherName, teacherPhot
       <div className="hint-text" style={{ marginBottom: 6 }}>Нажмите 🙂 рядом с сообщением, чтобы ответить реакцией. Смайлы — кнопка в строке ввода.</div>
       <div className="chat-box" ref={boxRef}>
         {messages.length === 0 && <div className="muted-text" style={{ padding: "10px 0" }}>Сообщений пока нет</div>}
-        {messages.map((m) => {
-          const isMine = m.sender === role;
-          const who = m.sender === "teacher" ? { name: teacherName || "Учитель", photo: teacherPhoto } : { name: studentName || "Ученик", photo: "" };
-          return <MessageBubble key={m.id} m={m} isMine={isMine} who={who} role={role} onToggleReaction={toggleReaction} />;
-        })}
+        <ChatList messages={messages} role={role} onToggleReaction={toggleReaction}
+          whoOf={(m) => (m.sender === "teacher" ? { name: teacherName || "Преподаватель", photo: teacherPhoto, roleKey: "teacher" } : { name: studentName || "Ученик", photo: student.photo || "", roleKey: "student" })} />
       </div>
       {canAct && (
         <div>
@@ -4378,11 +4382,20 @@ const CSS = `
 .hw-status-bar { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:8px; padding-top:8px; border-top:1px dashed var(--border); }
 .hw-feedback { margin-top:6px; font-size:12.5px; background: var(--accent-soft); color: var(--ink); padding:6px 8px; border-radius:8px; }
 
-.chat-box { display:flex; flex-direction:column; gap:8px; max-height:280px; overflow-y:auto; padding:6px 2px; }
-.chat-bubble { max-width:75%; padding:8px 12px; border-radius:14px; font-size:13px; }
-.chat-bubble.mine { align-self:flex-end; background: var(--accent); color:#fff; border-bottom-right-radius:4px; }
-.chat-bubble.theirs { align-self:flex-start; background: var(--paper); color: var(--ink); border-bottom-left-radius:4px; }
-.chat-time { font-size:10px; opacity:.75; margin-top:3px; }
+.chat-box { display:flex; flex-direction:column; gap:2px; max-height:440px; overflow-y:auto; padding:8px 4px; }
+.chat-day { text-align:center; margin:10px 0 6px; }
+.chat-day span { font-size:11px; color: var(--ink-soft); background: var(--paper); border-radius:999px; padding:3px 12px; }
+.chat-bubble { padding:7px 12px 5px; border-radius:16px; font-size:14px; line-height:1.4; width:fit-content; max-width:100%; }
+.chat-bubble.mine { background: var(--accent); color:#fff; border-bottom-right-radius:16px; }
+.chat-bubble.theirs { background: var(--paper); color: var(--ink); border-bottom-left-radius:16px; }
+.chat-bubble.mine.last { border-bottom-right-radius:5px; }
+.chat-bubble.theirs.last { border-bottom-left-radius:5px; }
+.chat-text { white-space:pre-wrap; overflow-wrap:anywhere; }
+.chat-meta { display:flex; justify-content:flex-end; align-items:center; gap:6px; margin-top:2px; }
+.chat-time { font-size:10.5px; opacity:.7; }
+.chat-name { font-size:11.5px; font-weight:600; color: var(--ink-soft); margin:6px 6px 2px; }
+.chat-row.mine .chat-name { text-align:right; }
+.chat-att { margin-top:4px; }
 
 .slot-group-label { font-size:11px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); margin: 14px 0 6px; font-weight:600; }
 .past-lessons-section { margin-top: 16px; padding-top: 12px; border-top: 2px dotted var(--border); }
@@ -4550,10 +4563,16 @@ const CSS = `
 
 /* ---- v4 additions: chat, banner, checkpoints, package, lesson plan, payment, shop ---- */
 
-.chat-row { display:flex; align-items:flex-end; gap:8px; margin-bottom:4px; width:100%; }
-.chat-row.mine { justify-content:flex-end; }
-.chat-row.theirs { justify-content:flex-start; }
-.chat-bubble-wrap { display:flex; flex-direction:column; max-width:75%; }
+.chat-row { display:flex; align-items:flex-end; gap:8px; width:100%; }
+.chat-row.mine { flex-direction:row-reverse; }
+.chat-row.last { margin-bottom:6px; }
+.chat-ava { width:34px; min-width:34px; display:flex; }
+.chat-ava.tone-teacher .avatar-fallback { background: var(--accent); color:#fff; }
+.chat-ava.tone-student .avatar-fallback { background:#F3D27A; color:#1E2B2F; }
+.chat-ava.tone-admin .avatar-fallback { background:#1E2B2F; color:#fff; }
+.chat-bubble-wrap { display:flex; flex-direction:column; max-width:min(75%, 560px); }
+.chat-row.mine .chat-bubble-wrap { align-items:flex-end; }
+.chat-row.theirs .chat-bubble-wrap { align-items:flex-start; }
 .chat-row.mine .chat-bubble-wrap { align-items:flex-end; }
 .chat-row.theirs .chat-bubble-wrap { align-items:flex-start; }
 .chat-reactions { display:flex; gap:3px; margin-top:2px; }

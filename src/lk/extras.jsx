@@ -407,8 +407,9 @@ export const EXTRA_CSS_BASE = `
 .emoji-pop { position:absolute; bottom:calc(100% + 6px); right:0; z-index:30; background:#fff; border:1.5px solid var(--ink); border-radius:16px; padding:8px; display:grid; grid-template-columns:repeat(8, 32px); gap:2px; box-shadow:0 18px 30px -18px rgba(30,43,47,.5); }
 .emoji-btn { width:32px; height:32px; border:0; background:transparent; border-radius:8px; font-size:19px; cursor:pointer; }
 .emoji-btn:hover { background:#f3eee4; }
-.react-open { border:0; background:transparent; opacity:.45; cursor:pointer; padding:2px 4px; font-size:14px; align-self:center; }
-.chat-row:hover .react-open, .react-open:focus-visible { opacity:1; }
+.react-open { border:0; background:transparent; opacity:0; cursor:pointer; padding:0 2px; font-size:13px; line-height:1; }
+.chat-row:hover .react-open, .react-open:focus-visible { opacity:.85; }
+@media (hover: none) { .react-open { opacity:.6; } }
 .ov { display:flex; flex-direction:column; gap:14px; margin-bottom:18px; }
 .ov-grid { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px; }
 .ov-card { background:#fff; border:1.5px solid var(--line, #e2dccf); border-radius:20px; padding:16px 18px; }
@@ -467,6 +468,18 @@ export const EXTRA_CSS_BASE = `
   .role-btn { padding:6px 10px !important; font-size:12px !important; }
 }
 .top-bar .logout-btn { white-space:nowrap; }
+.main-area select, .main-area .mini-select { max-width:100%; }
+@media (max-width: 700px) {
+  .top-bar { position:static !important; padding:8px 12px !important; gap:6px 8px !important; }
+  .top-bar .brand-logo { height:30px !important; }
+  .top-bar .mini-select { max-width:150px; font-size:12px; }
+  .role-switch { padding:2px !important; }
+  .role-btn { padding:5px 9px !important; font-size:12px !important; }
+  .call-btn, .top-bar .logout-btn { padding:5px 9px !important; font-size:12px !important; }
+  .main-area .tabs { flex-wrap:nowrap !important; overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch; padding-bottom:4px; }
+  .main-area .tabs::-webkit-scrollbar { display:none; }
+  .main-area .tabs .tab { flex:none; white-space:nowrap; }
+}
 .student-item > .btn-icon.danger, .student-item > button.btn-icon { width:26px; height:26px; min-width:26px; opacity:0; transition:opacity .15s; align-self:flex-start; margin-top:4px; }
 .student-item:hover > .btn-icon, .student-item.active > .btn-icon, .student-item > .btn-icon:focus-visible { opacity:.75; }
 .student-item > .btn-icon.armed { opacity:1; }

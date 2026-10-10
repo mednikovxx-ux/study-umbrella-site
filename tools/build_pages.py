@@ -9,6 +9,13 @@ import pathlib, re
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 S = ROOT / 'site'
 SRC = ROOT / 'src' / 'pages'
+import hashlib, re as _re
+ASSET_V = hashlib.md5(((S / 'css/main.css').read_bytes() + (S / 'js/main.js').read_bytes())).hexdigest()[:8]
+# главная тоже получает метку версии, чтобы браузер не показывал старые стили
+_home = (S / 'index.html').read_text(encoding='utf-8')
+_home = _re.sub(r'/css/main\.css(\?v=\w+)?', '/css/main.css?v=' + ASSET_V, _home)
+_home = _re.sub(r'/js/main\.js(\?v=\w+)?', '/js/main.js?v=' + ASSET_V, _home)
+(S / 'index.html').write_text(_home, encoding='utf-8')
 idx = (S / 'index.html').read_text(encoding='utf-8')
 
 def block(start, end):
@@ -45,7 +52,7 @@ HEAD_COMMON = '''<meta charset="utf-8">
 <link rel="preload" href="/fonts/onest-cyrillic-400-normal.woff2" as="font" type="font/woff2" crossorigin>
 <!-- ПОДКЛЮЧИТЬ при запуске: Яндекс.Метрика (вставить код счётчика сюда) и подтверждение в Яндекс.Вебмастере:
 <meta name="yandex-verification" content="КОД"> -->
-<link rel="stylesheet" href="/css/main.css">'''
+<link rel="stylesheet" href="/css/main.css?v={ASSET_V}">'''
 
 
 import math
@@ -103,11 +110,11 @@ for src in sorted(SRC.glob('*.html')):
 
 {footer}
 
-<script src="/js/main.js" defer></script>
+<script src="/js/main.js?v={ASSET_V}" defer></script>
 </body>
 </html>
 '''
     out = S / slug / 'index.html'
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(page, encoding='utf-8')
+    out.write_text(page.replace('{ASSET_V}', ASSET_V), encoding='utf-8')
     print('built', out.relative_to(S))

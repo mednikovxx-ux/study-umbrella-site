@@ -18,7 +18,7 @@
 })();
 
 document.querySelectorAll('.t-nav button').forEach(b=>b.addEventListener('click',()=>{const g=document.querySelector('.t-grid');g.scrollBy({left:+b.dataset.t*(g.querySelector('li').offsetWidth+32),behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'})}))
-;(()=>{const t={lang:['от 1 250 ₽','Английский, испанский, турецкий и другие языки. Занятие 90 минут — 2 300 ₽, в пакете — 2 100 ₽.'],hum:['от 1 200 ₽','История, обществознание, русский язык, ОГЭ и ЕГЭ. Занятие 90 минут — 2 000 ₽, в пакете — 1 850 ₽.']};
+;(()=>{const t={lang:['от 1 250 ₽','Английский, испанский, турецкий и другие языки. Занятия по 90 минут — разовые и в пакете: стоимость уточняйте у менеджера.'],hum:['от 1 200 ₽','История, обществознание, русский язык, ОГЭ и ЕГЭ. Занятия по 90 минут — разовые и в пакете: стоимость уточняйте у менеджера.']};
 document.querySelectorAll('[data-seg]').forEach(b=>b.addEventListener('click',()=>{const k=b.dataset.seg;
 document.querySelectorAll('[data-seg]').forEach(x=>x.setAttribute('aria-pressed',x===b));
 document.querySelectorAll('[data-seg-table]').forEach(x=>x.hidden=x.dataset.segTable!==k);

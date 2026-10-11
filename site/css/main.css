@@ -221,6 +221,7 @@ ul,ol{margin:0;padding:0;list-style:none}
 .ptable td{border-top:1px solid var(--paper)}
 .ptable td.mid{vertical-align:middle;line-height:1.3}
 .ptable td.mid small{color:var(--muted);font-size:12px}
+.ptable td small{display:block;color:var(--muted);font-size:12px;font-weight:400;white-space:normal;line-height:1.3}
 .ptable caption.sr,.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .seg-note{font-size:14px;color:var(--muted);margin-top:-8px}
 .ph{background:var(--butter);padding:0 6px;border-radius:6px}

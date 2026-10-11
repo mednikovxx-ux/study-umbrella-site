@@ -30,8 +30,9 @@
    "hasOfferCatalog":{"@type":"OfferCatalog","name":"Форматы обучения","itemListElement":[
     {"@type":"Offer","name":"Пробное занятие 30 минут","price":"0","priceCurrency":"RUB"},
     {"@type":"Offer","name":"Диагностика 90 минут с письменным планом","price":"2000","priceCurrency":"RUB"},
-    {"@type":"Offer","name":"Занятия в паре, за человека, пакет 12 занятий","price":"1100","priceCurrency":"RUB"},
-    {"@type":"Offer","name":"Мини-группа 3–4 человека, курс 12 занятий, за человека","price":"12000","priceCurrency":"RUB"},
+    {"@type":"Offer","name":"Иностранный язык в паре, за человека, пакет 12 занятий","price":"1100","priceCurrency":"RUB"},
+    {"@type":"Offer","name":"Групповой курс по языку, 3–4 человека, 8 занятий за 4 недели, за человека","price":"8000","priceCurrency":"RUB"},
+    {"@type":"Offer","name":"Групповой курс ОГЭ/ЕГЭ, 3–4 человека, 8 занятий за 4 недели, за человека","price":"7600","priceCurrency":"RUB"},
     {"@type":"Offer","name":"Индивидуальное занятие по языку, 60 минут","price":"1600","priceCurrency":"RUB"},
     {"@type":"Offer","name":"Индивидуальное занятие по истории, обществознанию или русскому, 60 минут","price":"1400","priceCurrency":"RUB"},
     {"@type":"Offer","name":"Формат «Сам, но не один», история и обществознание, месяц","price":"6900","priceCurrency":"RUB"},
@@ -57,7 +58,7 @@
 <link rel="preload" href="/fonts/onest-cyrillic-400-normal.woff2" as="font" type="font/woff2" crossorigin>
 <!-- ПОДКЛЮЧИТЬ при запуске: Яндекс.Метрика (вставить код счётчика сюда) и подтверждение в Яндекс.Вебмастере:
 <meta name="yandex-verification" content="КОД"> -->
-<link rel="stylesheet" href="/css/main.css?v=5f39bdad">
+<link rel="stylesheet" href="/css/main.css?v=e2fe4620">
 <link rel="preload" as="image" type="image/webp" imagesrcset="/img/hero-640.webp 640w, /img/hero.webp 1122w" imagesizes="(max-width: 900px) 92vw, 44vw">
 </head>
 <body>
@@ -267,28 +268,37 @@
    </article>
    <article class="plan">
     <h3>В паре</h3>
-    <p class="desc">Вдвоём со своим человеком: подругой, коллегой, супругом или одноклассником. Своё расписание, ждать набора не нужно.</p>
+    <p class="desc">Только иностранные языки. Вдвоём со своим человеком: подругой, коллегой или супругом. Своё расписание, ждать набора не нужно.</p>
     <p class="amount">от 1 100 ₽<small>с человека за 60 минут в пакете из 12</small></p>
     <table class="ptable">
      <caption class="sr">В паре: цена занятия и всего пакета с одного человека</caption>
      <tr><th>Занятий по 60 минут</th><th>За урок</th><th>Весь пакет</th></tr>
      <tr><td>1</td><td>1 200 ₽</td><td>1 200 ₽</td></tr><tr><td>8</td><td>1 150 ₽</td><td>9 200 ₽</td></tr><tr><td>12</td><td>1 100 ₽</td><td>13 200 ₽</td></tr>
     </table>
-    <p class="seg-note">Цена с одного человека, одинаковая для языков и гуманитарных предметов.</p>
+    <p class="seg-note">Цена с одного человека. В гуманитарных предметах пар нет: если вас двое, соберём групповой курс.</p>
     <ul class="ticks"><li>Больше разговорной практики, чем в одиночку</li><li>Один преподаватель и общая цель</li><li>Разбор работ каждого</li></ul>
     <p class="hand">вдвоём веселее и дешевле</p>
     <a class="btn light wide" href="#zayavka">Узнать про пары</a>
    </article>
    <article class="plan">
-    <h3>Мини-группа</h3>
-    <p class="desc">3–4 человека одного уровня и с одной целью. Идёт курсом: общий старт и заранее известное число занятий.</p>
-    <p class="amount">от 8&nbsp;400 ₽<small>с человека за курс целиком · от 1&nbsp;000 ₽ за урок</small></p>
-    <table class="ptable">
-     <caption class="sr">Мини-группа: цена курса с одного человека</caption>
-     <tr><th>Курс, занятий по 60 минут</th><th>За урок</th><th>Весь курс</th></tr>
-     <tr><td>8</td><td>1 050 ₽</td><td>8 400 ₽</td></tr><tr><td>12</td><td>1 000 ₽</td><td>12 000 ₽</td></tr>
+    <h3>Групповой курс</h3>
+    <p class="desc">3–4 человека одного уровня и с одной целью. Курс идёт 4 недели, число занятий известно заранее.</p>
+    <div class="seg" role="group" aria-label="Направление">
+     <button type="button" data-seg="lang" aria-pressed="true">Языки</button>
+     <button type="button" data-seg="hum" aria-pressed="false">Гуманитарные предметы</button>
+    </div>
+    <p class="amount" id="grp-amount">от 8&nbsp;000 ₽<small>с человека за курс 4 недели · от 950 ₽ за урок</small></p>
+    <table class="ptable" data-seg-table="lang">
+     <caption class="sr">Групповой курс по языку: цена с одного человека</caption>
+     <tr><th>Курс на 4 недели</th><th>За урок</th><th>Весь курс</th></tr>
+     <tr><td>8 занятий<small>2 раза в неделю</small></td><td>1 000 ₽</td><td>8 000 ₽</td></tr><tr><td>12 занятий<small>интенсив, 3 раза в неделю</small></td><td>950 ₽</td><td>11 400 ₽</td></tr>
     </table>
-    <p class="seg-note">Оплачивается курс целиком, цена с одного человека. Дату старта и программу ближайшей группы подскажет менеджер.</p>
+    <table class="ptable" data-seg-table="hum" hidden>
+     <caption class="sr">Групповой курс ОГЭ и ЕГЭ: цена с одного человека</caption>
+     <tr><th>Курс на 4 недели</th><th>За урок</th><th>Весь курс</th></tr>
+     <tr><td>8 занятий<small>2 раза в неделю</small></td><td>950 ₽</td><td>7 600 ₽</td></tr><tr><td>12 занятий<small>интенсив, 3 раза в неделю</small></td><td>900 ₽</td><td>10 800 ₽</td></tr>
+    </table>
+    <p class="seg-note">Занятия по 60 минут. Курс оплачивается целиком до первого занятия месяца. Группа стартует, когда оплатили минимум 3 человека. Дату старта подскажет менеджер.</p>
     <ul class="ticks"><li>Группы по уровню и цели</li><li>Живое общение и практика</li><li>Разбор работ каждого</li></ul>
     <p class="hand">самый выгодный урок</p>
     <a class="btn light wide" href="#zayavka">Узнать расписание групп</a>
@@ -416,6 +426,6 @@
  </div>
 </footer>
 
-<script src="/js/main.js?v=5f39bdad" defer></script>
+<script src="/js/main.js?v=e2fe4620" defer></script>
 </body>
 </html>

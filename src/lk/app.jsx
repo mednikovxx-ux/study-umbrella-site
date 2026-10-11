@@ -2576,8 +2576,7 @@ function StudentView({ student, teacher, schedule, actions, products, ext, onSwi
 
       {payOpen && (
         <PayRequestModal student={student} products={umbrellaOf(ext.umbrellas, student) ? [8, 12].map((n) => ({ id: "um" + n, subject: teacher.subject, lessonsIncluded: n, price: UMBRELLA_PRICES[n] }))
-          : PAIR_PRICES[student.format] ? (student.format === "group" ? [8, 12] : [1, 8, 12]).map((n) => ({ id: student.format + n, subject: teacher.subject, lessonsIncluded: n === 1 ? 0 : n, price: PAIR_PRICES[student.format][n] * n }))
-          : products} subject={teacher.subject} onClose={() => setPayOpen(false)} onSubmit={(d) => { actions.requestPayment(student.id, teacher.id, d); setPayOpen(false); }} />
+          : formatProducts(student.format, teacher.subject) || products} subject={teacher.subject} onClose={() => setPayOpen(false)} onSubmit={(d) => { actions.requestPayment(student.id, teacher.id, d); setPayOpen(false); }} />
       )}
 
       {tab === "card" && <>
@@ -2697,8 +2696,15 @@ function StudentView({ student, teacher, schedule, actions, products, ext, onSwi
   );
 }
 
-// Pairs and mini-groups, per person per lesson (price list from 1 October 2026). A mini-group pays for the whole course.
-const PAIR_PRICES = { pair: { 1: 1200, 8: 1150, 12: 1100 }, group: { 1: 1100, 8: 1050, 12: 1000 } };
+// Per person per lesson (price list from 1 November 2026). Pairs are for languages only;
+// a group course lasts 4 weeks and is paid in full.
+const PAIR_PRICES = { pair: { 1: 1200, 8: 1150, 12: 1100 } };
+const GROUP_PRICES = { language: { 8: 1000, 12: 950 }, humanities: { 8: 950, 12: 900 } };
+const formatProducts = (format, subject) => {
+  if (format === "group") { const p = GROUP_PRICES[SUBJECTS[subject]?.dept || "language"]; return [8, 12].map((n) => ({ id: "group" + n, subject, lessonsIncluded: n, price: p[n] * n })); }
+  if (format === "pair" && SUBJECTS[subject]?.dept !== "humanities") return [1, 8, 12].map((n) => ({ id: "pair" + n, subject, lessonsIncluded: n === 1 ? 0 : n, price: PAIR_PRICES.pair[n] * n }));
+  return null;
+};
 
 const ListChecksIcon = () => <span aria-hidden="true" style={{ fontSize: 12 }}>📈</span>;
 

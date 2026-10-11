@@ -177,7 +177,7 @@ export function PayRequestModal({ student, products, subject, onSubmit, onClose 
       <textarea className="mini-input wide" rows={2} placeholder="Комментарий (необязательно): например, «занимаюсь по прежним ценам»" value={note} onChange={(e) => setNote(e.target.value)} />
       <div className="row-gap" style={{ marginTop: 10, justifyContent: "flex-end" }}>
         <button className="btn-small" onClick={onClose}>Отмена</button>
-        <button className="btn-small accent" disabled={!p} onClick={() => onSubmit({ productId: p.id, lessons: p.lessonsIncluded || 1, label: p.lessonsIncluded ? (String(p.id).startsWith("group") ? "Курс мини-группы, " : "Пакет ") + lessonsWord(p.lessonsIncluded) : "Одно занятие", amount: p.price, note: note.trim() })}><CreditCard size={13} /> Запросить оплату</button>
+        <button className="btn-small accent" disabled={!p} onClick={() => onSubmit({ productId: p.id, lessons: p.lessonsIncluded || 1, label: p.lessonsIncluded ? (String(p.id).startsWith("group") ? "Групповой курс, " : "Пакет ") + lessonsWord(p.lessonsIncluded) : "Одно занятие", amount: p.price, note: note.trim() })}><CreditCard size={13} /> Запросить оплату</button>
       </div>
     </Modal>
   );
@@ -496,8 +496,8 @@ export const FORMATS = {
   individual: { icon: "👤", label: "Индивидуально", hint: "Один на один с преподавателем, программа под цель. Пакеты 4/6/8/12 или разовые занятия." },
   self: { icon: "☂️", label: "«Сам, но не один»", hint: "Абонемент на месяц: одно занятие в неделю (4 в месяц), между ними задание под пробелы и письменный разбор." },
   umbrella: { icon: "🌂", label: "«Под одним зонтом»", hint: "Комплексный пакет: несколько предметов в любой комбинации в одном пакете, у каждого предмета свой преподаватель, остаток общий." },
-  pair: { icon: "👥", label: "В паре", hint: "Занятия вдвоём со своим партнёром по общему расписанию. Цена за одного." },
-  group: { icon: "👨‍👩‍👧", label: "Мини-группа", hint: "3–4 человека, курс с общим стартом." },
+  pair: { icon: "👥", label: "В паре", hint: "Только языки. Занятия вдвоём со своим партнёром по общему расписанию. Цена за одного." },
+  group: { icon: "👨‍👩‍👧", label: "Групповой курс", hint: "3–4 человека, курс 4 недели: 8 или 12 занятий, оплачивается целиком. Стартует, когда оплатили минимум трое." },
 };
 export const formatOf = (s) => FORMATS[s.format] ? s.format : "individual";
 export const FormatBadge = ({ student }) => { const f = FORMATS[formatOf(student)]; return <span className="fmt-badge" title={f.hint}>{f.icon} {f.label}</span>; };
@@ -552,7 +552,7 @@ export function FormatPanel({ student, students, teachers, groups, umbrellas, sl
         <span className="fmt-title">Формат</span>
         {canEdit ? (
           <select className="fmt-select" value={fmt} onChange={(e) => actions.setFormat(student.id, e.target.value)}>
-            {Object.entries(FORMATS).map(([k, f]) => <option key={k} value={k}>{f.icon} {f.label}</option>)}
+            {Object.entries(FORMATS).filter(([k]) => k !== "pair" || fmt === "pair" || subjectMeta?.[teachers.find((t) => t.id === student.teacherId)?.subject]?.dept !== "humanities").map(([k, f]) => <option key={k} value={k}>{f.icon} {f.label}</option>)}
           </select>
         ) : <FormatBadge student={student} />}
       </div>
@@ -700,12 +700,12 @@ export function GroupsPanel({ groups, students, teachers, subjectMeta, teacherId
     <div className="lib">
       <div className="row-gap" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
         <div>
-          <h3 className="lib-title">👥 Пары и мини-группы</h3>
+          <h3 className="lib-title">👥 Пары и групповые курсы</h3>
           <div className="hint-text">Состав и постоянное расписание. Кнопка «Поставить занятия» создаёт уроки в расписании сразу всем участникам, у каждого списывается его пакет.</div>
         </div>
         <div className="row-gap">
-          <button className="btn-small" onClick={() => actions.createGroup({ kind: "pair", teacherId: teacherIds[0], studentIds: [] }, (g) => startEdit(g))}><Plus size={13} /> Пара</button>
-          <button className="btn-small accent" onClick={() => actions.createGroup({ kind: "group", teacherId: teacherIds[0], studentIds: [] }, (g) => startEdit(g))}><Plus size={13} /> Мини-группа</button>
+          <button className="btn-small" onClick={() => actions.createGroup({ kind: "pair", teacherId: teacherIds.find((id) => subjectMeta[teachers.find((x) => x.id === id)?.subject]?.dept !== "humanities") || teacherIds[0], studentIds: [] }, (g) => startEdit(g))}><Plus size={13} /> Пара</button>
+          <button className="btn-small accent" onClick={() => actions.createGroup({ kind: "group", teacherId: teacherIds[0], studentIds: [] }, (g) => startEdit(g))}><Plus size={13} /> Группа</button>
         </div>
       </div>
       {msg && <div className="ov-note" role="status">{msg}</div>}
@@ -715,9 +715,9 @@ export function GroupsPanel({ groups, students, teachers, subjectMeta, teacherId
         if (editId === g.id && draft) return (
           <div key={g.id} className="add-panel lib-form">
             <div className="row-gap" style={{ flexWrap: "wrap" }}>
-              <select className="mini-select" value={draft.kind} onChange={(e) => setDraft({ ...draft, kind: e.target.value, studentIds: draft.studentIds.slice(0, e.target.value === "pair" ? 2 : 4) })}><option value="pair">👥 Пара</option><option value="group">👨‍👩‍👧 Мини-группа</option></select>
+              <select className="mini-select" value={draft.kind} onChange={(e) => { const kind = e.target.value; const humT = subjectMeta[teachers.find((x) => x.id === draft.teacherId)?.subject]?.dept === "humanities"; const langT = teacherIds.find((id) => subjectMeta[teachers.find((x) => x.id === id)?.subject]?.dept !== "humanities"); setDraft({ ...draft, kind, ...(kind === "pair" && humT && langT ? { teacherId: langT, studentIds: [] } : { studentIds: draft.studentIds.slice(0, kind === "pair" ? 2 : 4) }) }); }}><option value="pair">👥 Пара</option><option value="group">👨‍👩‍👧 Групповой курс</option></select>
               <input className="mini-input" placeholder="Название" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
-              {canPickTeacher && <select className="mini-select" value={draft.teacherId} onChange={(e) => setDraft({ ...draft, teacherId: e.target.value, studentIds: [] })}>{teachers.filter((x) => teacherIds.includes(x.id)).map((x) => <option key={x.id} value={x.id}>{subjectMeta[x.subject].emoji} {x.name}</option>)}</select>}
+              {canPickTeacher && <select className="mini-select" value={draft.teacherId} onChange={(e) => setDraft({ ...draft, teacherId: e.target.value, studentIds: [] })}>{teachers.filter((x) => teacherIds.includes(x.id) && (draft.kind !== "pair" || subjectMeta[x.subject]?.dept !== "humanities")).map((x) => <option key={x.id} value={x.id}>{subjectMeta[x.subject].emoji} {x.name}</option>)}</select>}
               <label className="hint-text">Старт <input type="date" className="mini-input" value={draft.startDate || ""} onChange={(e) => setDraft({ ...draft, startDate: e.target.value })} /></label>
             </div>
             <div className="field-label">Участники (до {max})</div>
@@ -1201,7 +1201,7 @@ export const LESSON_KINDS = {
   self: "☂️ «Сам, но не один»",
   umbrella: "🌂 «Под одним зонтом»",
   pair: "👥 Пара",
-  group: "👨‍👩‍👧 Мини-группа",
+  group: "👨‍👩‍👧 Групповой курс",
   trial: "🎓 Пробный",
   club: "🗣 Разговорный клуб",
 };
@@ -1257,7 +1257,7 @@ export function PayrollCard({ teacher, slots, students, onSetRate, clubs }) {
         {Object.entries(LESSON_KINDS).map(([k, lbl]) => (
           <label key={k} className="pay-row"><span>{lbl}</span><input type="number" min="0" step="50" className="mini-input" style={{ width: 96 }} value={rates[k] || ""} placeholder="0 ₽" onChange={(e) => onSetRate(teacher.id, k, Number(e.target.value) || 0)} /></label>
         ))}
-        <div className="hint-text">В рублях за урок. «Из пакета» — индивидуальные уроки ученика с оплаченным пакетом. Пара и мини-группа оплачиваются один раз за занятие.</div>
+        <div className="hint-text">В рублях за урок. «Из пакета» — индивидуальные уроки ученика с оплаченным пакетом. Пара и групповой курс оплачиваются один раз за занятие.</div>
       </div>
     </details>
   );

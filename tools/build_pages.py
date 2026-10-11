@@ -26,7 +26,7 @@ def to_root(html):
     return re.sub(r'href="(#[\w-]+)"', lambda m: m.group(0) if m.group(1) in KEEP else f'href="/{m.group(1)}"', html)
 
 header = to_root(block('<header class="top"', '</header>'))
-footer = to_root(block('<footer class="foot">', '</footer>'))
+footer = to_root(block('<footer class="foot">', '</footer>')) + '\n\n' + block('<dialog class="rules" id="pack-rules"', '</dialog>')
 cta = block('<section class="sec cta" id="zayavka"', '</section>')
 lis = re.findall(r'   <li><figure class="polaroid">.*?</li>', idx)
 

@@ -63,3 +63,7 @@ document.querySelectorAll('.demo-form').forEach(function(f){var m=f.querySelecto
  if(window.suGoal)window.suGoal('vacancy');
  m.textContent='Анкета заполнена. Сейчас форма в демо-режиме — подключим отправку при запуске сайта.';
 })});
+
+/* окошко «Правила пакетов» */
+document.querySelectorAll('[data-open]').forEach(b=>b.addEventListener('click',()=>{const d=document.getElementById(b.dataset.open);if(d&&d.showModal){d.showModal();document.body.style.overflow='hidden'}}));
+document.querySelectorAll('dialog.rules').forEach(d=>{d.addEventListener('click',e=>{if(e.target===d||e.target.closest('[data-close]'))d.close()});d.addEventListener('close',()=>{document.body.style.overflow=''})});

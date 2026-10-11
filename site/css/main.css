@@ -682,3 +682,21 @@ textarea{font:inherit;resize:vertical}
 @media (max-width:420px){.choice .btn{font-size:15px;padding-inline:12px}}
 .ptable td{white-space:nowrap}
 @media (max-width:640px){.ptable{font-size:13px}.ptable th,.ptable td{padding:8px 9px}.ptable th{font-size:12px;line-height:1.25}}
+
+/* окошко «Правила пакетов» */
+.rules-link{display:inline-block;align-self:flex-start;margin-top:4px;padding:0;border:0;background:none;font:600 15px/1.4 var(--body);color:var(--ink);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.rules-link:hover{color:var(--red-btn)}
+dialog.rules{width:min(760px,calc(100% - 32px));max-height:calc(100dvh - 32px);margin:auto;padding:0;border:0;border-radius:24px;background:var(--paper);color:var(--ink);box-shadow:0 24px 60px rgba(30,43,47,.25)}
+dialog.rules::backdrop{background:rgba(30,43,47,.45)}
+.rules-in{padding:28px 32px 32px;display:flex;flex-direction:column;gap:16px}
+.rules-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.rules-head h2{font:700 clamp(28px,3vw,40px)/1.05 var(--display)}
+.rules-x{flex:none;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--white);font:400 26px/1 var(--body);color:var(--ink);cursor:pointer}
+.rules-lead,.rules-note{color:var(--muted);font-size:15px;line-height:1.45}
+.rules-scroll{overflow-x:auto;border-radius:16px}
+.rules-table th,.rules-table td{text-align:center}
+.rules-table th:first-child,.rules-table td:first-child{text-align:left;white-space:normal}
+.rules-list{display:flex;flex-direction:column;gap:14px;margin:0}
+.rules-list dt{font-weight:600;margin-bottom:2px}
+.rules-list dd{margin:0;line-height:1.5;color:#33403F}
+@media (max-width:600px){.rules-in{padding:20px 16px 24px}.rules-table{table-layout:fixed}.rules-table th,.rules-table td{padding:8px 4px;font-size:12.5px;white-space:normal;line-height:1.25}.rules-table th:first-child,.rules-table td:first-child{width:34%;padding-left:10px}}

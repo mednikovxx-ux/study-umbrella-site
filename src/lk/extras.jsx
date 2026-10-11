@@ -169,7 +169,7 @@ export function PayRequestModal({ student, products, subject, onSubmit, onClose 
         {opts.map((o) => (
           <label key={o.id} className={"pay-opt" + (pick === o.id ? " on" : "")}>
             <input type="radio" name="pk" checked={pick === o.id} onChange={() => setPick(o.id)} />
-            <span>{o.lessonsIncluded ? "Пакет " + lessonsWord(o.lessonsIncluded) : "Одно занятие"}</span>
+            <span>{o.lessonsIncluded ? (String(o.id).startsWith("group") ? "Курс " : "Пакет ") + lessonsWord(o.lessonsIncluded) : "Одно занятие"}</span>
             <b>{rub(o.price)}</b>
           </label>
         ))}
@@ -177,7 +177,7 @@ export function PayRequestModal({ student, products, subject, onSubmit, onClose 
       <textarea className="mini-input wide" rows={2} placeholder="Комментарий (необязательно): например, «занимаюсь по прежним ценам»" value={note} onChange={(e) => setNote(e.target.value)} />
       <div className="row-gap" style={{ marginTop: 10, justifyContent: "flex-end" }}>
         <button className="btn-small" onClick={onClose}>Отмена</button>
-        <button className="btn-small accent" disabled={!p} onClick={() => onSubmit({ productId: p.id, lessons: p.lessonsIncluded || 1, label: p.lessonsIncluded ? "Пакет " + lessonsWord(p.lessonsIncluded) : "Одно занятие", amount: p.price, note: note.trim() })}><CreditCard size={13} /> Запросить оплату</button>
+        <button className="btn-small accent" disabled={!p} onClick={() => onSubmit({ productId: p.id, lessons: p.lessonsIncluded || 1, label: p.lessonsIncluded ? (String(p.id).startsWith("group") ? "Курс мини-группы, " : "Пакет ") + lessonsWord(p.lessonsIncluded) : "Одно занятие", amount: p.price, note: note.trim() })}><CreditCard size={13} /> Запросить оплату</button>
       </div>
     </Modal>
   );

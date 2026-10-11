@@ -172,6 +172,9 @@ ul,ol{margin:0;padding:0;list-style:none}
 .dir-pic.sky{background:var(--sky)} .dir-pic.butter{background:var(--butter)}
 .dir-pic img{height:100%;width:auto;max-width:90%;object-fit:contain}
 .dir-pic.noimg img.photo{display:none}
+.dir-pic.fill{padding:0;display:block;background:#efe4d6}
+.dir-pic.fill picture{display:block;width:100%;height:100%}
+.dir-pic.fill .photo-fill{width:100%;height:100%;max-width:none;object-fit:cover;object-position:50% 35%;display:block}
 .dir-pic .fb{display:none}
 .dir-pic.noimg .fb{display:block;position:absolute;inset:0;width:100%;height:100%;max-width:none;object-fit:cover}
 .dir-pic.noimg .fb-mark{inset:auto;left:50%;top:50%;width:140px;height:auto;transform:translate(-50%,-50%);object-fit:contain}

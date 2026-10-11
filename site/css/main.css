@@ -679,3 +679,5 @@ textarea{font:inherit;resize:vertical}
 .choice .btn{white-space:nowrap;padding-inline:18px}
 @media (max-width:1300px){.choice .btn{font-size:16px}}
 @media (max-width:420px){.choice .btn{font-size:15px;padding-inline:12px}}
+.ptable td{white-space:nowrap}
+@media (max-width:640px){.ptable{font-size:13px}.ptable th,.ptable td{padding:8px 9px}.ptable th{font-size:12px;line-height:1.25}}

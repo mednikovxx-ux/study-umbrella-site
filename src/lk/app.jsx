@@ -2575,7 +2575,9 @@ function StudentView({ student, teacher, schedule, actions, products, ext, onSwi
       </div>
 
       {payOpen && (
-        <PayRequestModal student={student} products={umbrellaOf(ext.umbrellas, student) ? [8, 12].map((n) => ({ id: "um" + n, subject: teacher.subject, lessonsIncluded: n, price: UMBRELLA_PRICES[n] })) : products} subject={teacher.subject} onClose={() => setPayOpen(false)} onSubmit={(d) => { actions.requestPayment(student.id, teacher.id, d); setPayOpen(false); }} />
+        <PayRequestModal student={student} products={umbrellaOf(ext.umbrellas, student) ? [8, 12].map((n) => ({ id: "um" + n, subject: teacher.subject, lessonsIncluded: n, price: UMBRELLA_PRICES[n] }))
+          : PAIR_PRICES[student.format] ? [1, 8, 12].map((n) => ({ id: student.format + n, subject: teacher.subject, lessonsIncluded: n === 1 ? 0 : n, price: PAIR_PRICES[student.format][n] * n }))
+          : products} subject={teacher.subject} onClose={() => setPayOpen(false)} onSubmit={(d) => { actions.requestPayment(student.id, teacher.id, d); setPayOpen(false); }} />
       )}
 
       {tab === "card" && <>
@@ -2694,6 +2696,9 @@ function StudentView({ student, teacher, schedule, actions, products, ext, onSwi
     </div>
   );
 }
+
+// Pairs and mini-groups, per person per lesson (price list from 1 October 2026).
+const PAIR_PRICES = { pair: { 1: 1200, 8: 1150, 12: 1100 }, group: { 1: 1100, 8: 1050, 12: 1000 } };
 
 const ListChecksIcon = () => <span aria-hidden="true" style={{ fontSize: 12 }}>📈</span>;
 

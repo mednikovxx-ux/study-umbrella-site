@@ -703,3 +703,44 @@ dialog.rules::backdrop{background:rgba(30,43,47,.45)}
 .rules-list dt{font-weight:600;margin-bottom:2px}
 .rules-list dd{margin:0;line-height:1.5;color:#33403F}
 @media (max-width:600px){.rules-in{padding:20px 16px 24px}.rules-table{table-layout:fixed}.rules-table th,.rules-table td{padding:8px 4px;font-size:12.5px;white-space:normal;line-height:1.25}.rules-table th:first-child,.rules-table td:first-child{width:34%;padding-left:10px}}
+
+/* ---------- анимации (только если человек не отключил движение в системе) ---------- */
+@media (prefers-reduced-motion:no-preference){
+ /* появление при прокрутке: класс .rv ставит main.js */
+ .anim .rv{opacity:0;transform:translateY(28px);transition:opacity .7s cubic-bezier(.2,.7,.2,1) var(--d,0ms),transform .8s cubic-bezier(.2,.7,.2,1) var(--d,0ms)}
+ .anim .rv.in{opacity:1;transform:none}
+ /* рукописные пометки «пишутся» слева направо */
+ .sec-head.rv .eyebrow{clip-path:inset(-20% 100% -20% 0)}
+ .sec-head.rv.in .eyebrow{clip-path:inset(-20% 0 -20% 0);transition:clip-path 1s cubic-bezier(.5,0,.2,1) .25s}
+ .anim .handnote{animation:write 1.2s cubic-bezier(.5,0,.2,1) .5s both}
+ @keyframes write{from{clip-path:inset(-30% 100% -30% 0)}to{clip-path:inset(-30% 0 -30% 0)}}
+ /* фото в первом экране мягко «приближается» */
+ .anim .hero-pic{animation:settle 1.6s cubic-bezier(.2,.7,.2,1) both}
+ @keyframes settle{from{transform:scale(1.05)}to{transform:none}}
+ /* номера шагов выскакивают */
+ .step.in .n{animation:pop .7s cubic-bezier(.3,1.6,.5,1) calc(var(--d,0ms) + .15s) both}
+ @keyframes pop{from{transform:scale(.4);opacity:0}to{transform:none;opacity:1}}
+ /* смена цены по переключателю */
+ .swap{animation:swap .45s cubic-bezier(.2,.7,.2,1)}
+ @keyframes swap{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+ /* кнопки: нажатие и лёгкий подъём */
+ .btn{transition:transform .2s ease,background-color .2s ease,box-shadow .2s ease,color .2s ease}
+ .btn:active{transform:translateY(1px) scale(.98)}
+ @media (hover:hover){
+  .btn:hover{transform:translateY(-2px)}
+  .btn:active{transform:translateY(1px) scale(.98)}
+  /* зонтик в логотипе покачивается */
+  .logo img{transition:transform .5s cubic-bezier(.3,1.6,.5,1);transform-origin:18% 60%}
+  .logo:hover img{transform:rotate(-6deg)}
+  /* карточки приподнимаются */
+  .plan,.aud-card,.choice,.review,.dir,.combo,.club{transition:transform .35s cubic-bezier(.2,.7,.2,1),box-shadow .35s ease}
+  .plan:hover,.aud-card:hover,.choice:hover,.review:hover,.dir:hover,.combo:hover,.club:hover{transform:translateY(-6px);box-shadow:0 24px 44px -26px rgba(30,43,47,.35)}
+  .dir-pic img{transition:transform .8s cubic-bezier(.2,.7,.2,1)}
+  .dir:hover .dir-pic img{transform:scale(1.04)}
+  .plan:hover .hand,.club:hover .hand{animation:wiggle .7s ease}
+  @keyframes wiggle{0%,100%{transform:none}25%{transform:rotate(-3deg)}60%{transform:rotate(2deg)}}
+  /* полароиды преподавателей выпрямляются */
+  .polaroid{transition:transform .45s cubic-bezier(.3,1.4,.5,1),box-shadow .45s ease}
+  .t-grid li .polaroid:hover{transform:rotate(0) translateY(-8px) scale(1.02);box-shadow:0 1px 0 var(--line),0 30px 50px -24px rgba(30,43,47,.55)}
+ }
+}

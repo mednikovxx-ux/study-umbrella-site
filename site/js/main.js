@@ -67,3 +67,15 @@ document.querySelectorAll('.demo-form').forEach(function(f){var m=f.querySelecto
 /* окошко «Правила пакетов» */
 document.querySelectorAll('[data-open]').forEach(b=>b.addEventListener('click',()=>{const d=document.getElementById(b.dataset.open);if(d&&d.showModal){d.showModal();document.body.style.overflow='hidden'}}));
 document.querySelectorAll('dialog.rules').forEach(d=>{d.addEventListener('click',e=>{if(e.target===d||e.target.closest('[data-close]'))d.close()});d.addEventListener('close',()=>{document.body.style.overflow=''})});
+
+/* анимации: блоки плавно появляются при прокрутке */
+;(()=>{if(!('IntersectionObserver' in window)||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+document.documentElement.classList.add('anim');
+const sel='.sec-head,.aud-card,.dir,.plan,.step,.t-grid>li,.combo,.club,.review,.choice,.trust-row>li,.f-list>li,.rep-row';
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(!e.isIntersecting)return;const el=e.target;io.unobserve(el);el.classList.add('in');
+ setTimeout(()=>{el.classList.remove('rv','in');el.style.removeProperty('--d')},1400+(parseInt(el.style.getPropertyValue('--d'))||0))}),{rootMargin:'0px 0px -6% 0px'});
+document.querySelectorAll(sel).forEach(el=>{const sib=[...el.parentElement.children].filter(x=>x.matches(sel));
+ el.style.setProperty('--d',Math.min(sib.indexOf(el),5)*90+'ms');el.classList.add('rv');io.observe(el)});
+document.querySelectorAll('[data-seg]').forEach(b=>b.addEventListener('click',()=>{
+ document.querySelectorAll('.amount[id],[data-seg-table]:not([hidden])').forEach(el=>{el.classList.remove('swap');void el.offsetWidth;el.classList.add('swap')})}));
+})();

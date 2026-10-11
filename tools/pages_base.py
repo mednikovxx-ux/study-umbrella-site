@@ -16,6 +16,7 @@ for f in out.rglob('*'):
         t = re.sub(r'href="/"', 'href="' + base + '/"', t)
     else:
         t = re.sub(r'((?:href|src|action)=["\']|url\(["\']?)/(?!/)', lambda m: m.group(1) + base + '/', t)
+        t = re.sub(r'((?:srcset|imagesrcset)=")([^"]*)"', lambda m: m.group(1) + re.sub(r'(^|,\s*)/(?!/)', lambda n: n.group(1) + base + '/', m.group(2)) + '"', t)
     if f.suffix == '.html':
         t = t.replace('<head>', '<head>\n<meta name="robots" content="noindex">', 1)
     f.write_text(t, encoding='utf-8')

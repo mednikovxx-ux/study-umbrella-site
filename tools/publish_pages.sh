@@ -5,7 +5,8 @@ cd "$(dirname "$0")/.."
 # Демо собирается БЕЗ контактов владельца: owner.local.js на время сборки убирается.
 mv src/lk/owner.local.js /tmp/su-owner.local.js
 trap 'mv -f /tmp/su-owner.local.js src/lk/owner.local.js; npm run build:lk >/dev/null' EXIT
-cp src/lk/owner.example.js src/lk/owner.local.js
+# Вход администратора в демо — по выдуманному номеру 8 999 999-99-99 (данные демо живут только в браузере).
+sed -e 's/name: "Владелец"/name: "Администратор (демо)"/' -e 's/+7 000 000-00-00/+7 999 999-99-99/' -e 's/@username//' -e 's/owner@example.com//' src/lk/owner.example.js > src/lk/owner.local.js
 npm run build
 python3 tools/pages_base.py study-umbrella-site
 PATTERN=$(grep -oE '"(@[A-Za-z0-9_]+|\+7[^"]*|[^"]+@[^"]+)"' /tmp/su-owner.local.js | tr -d '"' | sed 's/[^0-9A-Za-z@._]//g' | grep -v "^$" | paste -sd "|" -)

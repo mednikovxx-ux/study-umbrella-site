@@ -18,11 +18,11 @@
 })();
 
 document.querySelectorAll('.t-nav button').forEach(b=>b.addEventListener('click',()=>{const g=document.querySelector('.t-grid');g.scrollBy({left:+b.dataset.t*(g.querySelector('li').offsetWidth+32),behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'})}))
-;(()=>{const t={lang:['от 1 250 ₽','Английский, испанский, турецкий и другие языки. X'],hum:['от 1 200 ₽','История, обществознание, русский язык, ОГЭ и ЕГЭ. X']};
+;(()=>{const t={lang:['от 1 250 ₽','Английский, испанский, турецкий и другие языки. Разовое занятие 90 минут — 2\u00a0300\u00a0₽, пакеты по 90 минут — стоимость уточняйте у менеджера.'],hum:['от 1 200 ₽','История, обществознание, русский язык, ОГЭ и ЕГЭ. Разовое занятие 90 минут — 2\u00a0000\u00a0₽, пакеты по 90 минут — стоимость уточняйте у менеджера.']};
 document.querySelectorAll('[data-seg]').forEach(b=>b.addEventListener('click',()=>{const k=b.dataset.seg;
 document.querySelectorAll('[data-seg]').forEach(x=>x.setAttribute('aria-pressed',x===b));
 document.querySelectorAll('[data-seg-table]').forEach(x=>x.hidden=x.dataset.segTable!==k);
-var g=document.getElementById('grp-amount');if(g){g.firstChild.nodeValue='от '+(k==='hum'?900:950)+' ₽';g.lastChild.textContent='с человека за урок · от '+(k==='hum'?'7\u00a0600':'8\u00a0000')+' ₽ за курс 4 недели'}var am=document.getElementById('ind-amount');if(!am)return;am.firstChild.nodeValue=t[k][0];document.getElementById('ind-note').textContent=t[k][1];}))})()
+var g=document.getElementById('grp-amount');if(g){g.firstChild.nodeValue='от '+(k==='hum'?900:950)+' ₽';g.lastChild.textContent='с человека за урок · от '+(k==='hum'?'7\u00a0600':'8\u00a0000')+' ₽ за курс 4 недели'}var am=document.getElementById('ind-amount');if(!am)return;am.firstChild.nodeValue=t[k][0];am.lastChild.textContent=(k==='hum'?'гуманитарные предметы':'языки')+' · за 60 минут в пакете из 12';document.getElementById('ind-note').textContent=t[k][1];}))})()
 document.querySelectorAll('.t-grid').forEach(g=>{const n=g.closest('section')&&g.closest('section').querySelector('.t-nav');if(!n)return;const f=()=>{n.hidden=g.scrollWidth<=g.clientWidth+4};f();addEventListener('resize',f)});
 
 /* запись из карточек: подставить язык или предмет в форму */

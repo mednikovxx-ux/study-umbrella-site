@@ -22,7 +22,7 @@ document.querySelectorAll('.t-nav button').forEach(b=>b.addEventListener('click'
 document.querySelectorAll('[data-seg]').forEach(b=>b.addEventListener('click',()=>{const k=b.dataset.seg;
 document.querySelectorAll('[data-seg]').forEach(x=>x.setAttribute('aria-pressed',x===b));
 document.querySelectorAll('[data-seg-table]').forEach(x=>x.hidden=x.dataset.segTable!==k);
-var g=document.getElementById('grp-amount');if(g){g.firstChild.nodeValue=k==='hum'?'от 7\u00a0600 ₽':'от 8\u00a0000 ₽';g.lastChild.textContent='с человека за курс 4 недели · от '+(k==='hum'?900:950)+' ₽ за урок'}var am=document.getElementById('ind-amount');if(!am)return;am.firstChild.nodeValue=t[k][0];document.getElementById('ind-note').textContent=t[k][1];}))})()
+var g=document.getElementById('grp-amount');if(g){g.firstChild.nodeValue='от '+(k==='hum'?900:950)+' ₽';g.lastChild.textContent='с человека за урок · от '+(k==='hum'?'7\u00a0600':'8\u00a0000')+' ₽ за курс 4 недели'}var am=document.getElementById('ind-amount');if(!am)return;am.firstChild.nodeValue=t[k][0];document.getElementById('ind-note').textContent=t[k][1];}))})()
 document.querySelectorAll('.t-grid').forEach(g=>{const n=g.closest('section')&&g.closest('section').querySelector('.t-nav');if(!n)return;const f=()=>{n.hidden=g.scrollWidth<=g.clientWidth+4};f();addEventListener('resize',f)});
 
 /* запись из карточек: подставить язык или предмет в форму */

@@ -760,4 +760,4 @@ dialog.rules::backdrop{background:rgba(30,43,47,.45)}
 .t-grid .polaroid{position:relative;border:1.5px solid var(--ink)}.t-grid .polaroid::before{content:"";position:absolute;top:-11px;left:50%;width:84px;height:24px;margin-left:-42px;background:var(--tape,var(--butter));opacity:.85;transform:rotate(-3deg);border-radius:2px;box-shadow:0 1px 2px rgba(30,43,47,.12);pointer-events:none}.t-grid li:nth-child(5n+1){--tape:var(--butter)}.t-grid li:nth-child(5n+2){--tape:var(--sky)}.t-grid li:nth-child(5n+3){--tape:var(--lilac)}.t-grid li:nth-child(5n+4){--tape:var(--teal-soft)}.t-grid li:nth-child(5n+5){--tape:var(--red-soft)}.t-grid li:nth-child(even) .polaroid::before{transform:rotate(4deg)}
 
 /* карточка цены внутри двух колонок (страницы направлений): без общей сетки строк с главной */
-.price-split>.plan{grid-row:auto;grid-template-rows:none;align-content:start}
+.price-split>.plan{grid-row:auto;grid-template-rows:none;display:flex;flex-direction:column;gap:18px;height:auto;align-self:start}

@@ -3,7 +3,7 @@
 Шапка, блок заявки, подвал и карточки преподавателей берутся из site/index.html,
 поэтому правятся в одном месте.
 Источник страницы: <!--HEAD--> мета-теги и JSON-LD <!--BODY--> секции.
-Вставки: {{TEACHERS:Имя|Имя}}, {{CTA}}.
+Вставки: {{TEACHERS:фото|фото}} (имя файла из img/teachers/ без .jpg; можно и имя), {{CTA}}.
 """
 import pathlib, re
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -33,7 +33,7 @@ lis = re.findall(r'   <li><figure class="polaroid">.*?</li>', idx)
 def teachers(names):
     out = []
     for n in names.split('|'):
-        li = [l for l in lis if f'<h3>{n}</h3>' in l]
+        li = [l for l in lis if f'/img/teachers/{n}.jpg"' in l] or [l for l in lis if f'<h3>{n}</h3>' in l]
         assert li, n; out.append(li[0])
     return '\n'.join(out)
 

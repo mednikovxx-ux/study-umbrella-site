@@ -263,7 +263,7 @@ ul,ol{margin:0;padding:0;list-style:none}
 .polaroid figcaption{display:flex;flex-direction:column;gap:6px}
 .polaroid h3{font:600 22px/1.2 var(--body)}
 .polaroid .subj{font:500 16px var(--body);color:var(--teal)}
-.polaroid p.about{font-size:15px;line-height:1.45;color:var(--muted)}
+.polaroid p.about{font-size:15px;line-height:1.45;color:var(--muted)}.polaroid p.exp{font:600 14px/1.3 var(--body);color:var(--ink,#1E2B2F)}
 
 /* reviews */
 .reviews{background:var(--white)}

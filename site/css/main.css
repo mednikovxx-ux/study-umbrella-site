@@ -758,3 +758,6 @@ dialog.rules::backdrop{background:rgba(30,43,47,.45)}
 
 /* цветные рамки полароидов у преподавателей */
 .t-grid li:nth-child(5n+1) .polaroid{background:var(--butter)}.t-grid li:nth-child(5n+2) .polaroid{background:var(--sky)}.t-grid li:nth-child(5n+3) .polaroid{background:var(--lilac)}.t-grid li:nth-child(5n+4) .polaroid{background:var(--teal-soft)}.t-grid li:nth-child(5n+5) .polaroid{background:var(--red-soft)}.t-grid .polaroid p.about{color:var(--ink);opacity:.78}.t-grid .t-photo{box-shadow:0 0 0 1px rgba(30,43,47,.08)}
+
+/* карточка цены внутри двух колонок (страницы направлений): без общей сетки строк с главной */
+.price-split>.plan{grid-row:auto;grid-template-rows:none;align-content:start}

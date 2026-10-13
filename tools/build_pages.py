@@ -28,7 +28,7 @@ def to_root(html):
 header = to_root(block('<header class="top"', '</header>'))
 footer = to_root(block('<footer class="foot">', '</footer>')) + '\n\n' + block('<dialog class="rules" id="pack-rules"', '</dialog>')
 cta = block('<section class="sec cta" id="zayavka"', '</section>')
-lis = re.findall(r'   <li><figure class="polaroid">.*?</li>', idx)
+lis = re.findall(r'   <li[^>]*><figure class="polaroid">.*?</li>', idx)
 
 def teachers(names):
     out = []

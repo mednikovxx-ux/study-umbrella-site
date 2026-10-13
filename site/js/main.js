@@ -17,7 +17,7 @@
  });
 })();
 
-document.querySelectorAll('.t-nav button').forEach(b=>b.addEventListener('click',()=>{const g=document.querySelector('.t-grid');g.scrollBy({left:+b.dataset.t*(g.querySelector('li').offsetWidth+32),behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'})}))
+document.querySelectorAll('.t-nav button').forEach(b=>b.addEventListener('click',()=>{const g=document.querySelector('.t-grid');g.scrollBy({left:+b.dataset.t*(g.querySelector('li:not([hidden])').offsetWidth+32),behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'})}))
 ;(()=>{const t={lang:['от 1 250 ₽','Английский, испанский, турецкий и другие языки. Разовое занятие 90 минут — 2\u00a0300\u00a0₽, пакеты по 90 минут — стоимость уточняйте у менеджера.'],hum:['от 1 200 ₽','История, обществознание, русский язык, ОГЭ и ЕГЭ. Разовое занятие 90 минут — 2\u00a0000\u00a0₽, пакеты по 90 минут — стоимость уточняйте у менеджера.']};
 document.querySelectorAll('[data-seg]').forEach(b=>b.addEventListener('click',()=>{const k=b.dataset.seg;
 document.querySelectorAll('[data-seg]').forEach(x=>x.setAttribute('aria-pressed',x===b));
@@ -79,3 +79,6 @@ document.querySelectorAll(sel).forEach(el=>{const sib=[...el.parentElement.child
 document.querySelectorAll('[data-seg]').forEach(b=>b.addEventListener('click',()=>{
  document.querySelectorAll('.amount[id],[data-seg-table]:not([hidden])').forEach(el=>{el.classList.remove('swap');void el.offsetWidth;el.classList.add('swap')})}));
 })();
+
+/* фильтр преподавателей по предмету */
+document.querySelectorAll('.t-filter').forEach(f=>{const g=f.closest('section').querySelector('.t-grid');if(!g)return;f.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;f.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));const k=b.dataset.tf;g.querySelectorAll(':scope>li').forEach(li=>{li.hidden=k!=='all'&&!(li.dataset.subj||'').split(' ').includes(k)});g.scrollLeft=0;dispatchEvent(new Event('resize'))})});

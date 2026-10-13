@@ -82,3 +82,6 @@ document.querySelectorAll('[data-seg]').forEach(b=>b.addEventListener('click',()
 
 /* фильтр преподавателей по предмету */
 document.querySelectorAll('.t-filter').forEach(f=>{const g=f.closest('section').querySelector('.t-grid');if(!g)return;f.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;f.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));const k=b.dataset.tf;g.querySelectorAll(':scope>li').forEach(li=>{li.hidden=k!=='all'&&!(li.dataset.subj||'').split(' ').includes(k)});g.scrollLeft=0;dispatchEvent(new Event('resize'))})});
+
+/* плашка согласия: показываем, пока посетитель не нажал «Хорошо» */
+(()=>{const b=document.getElementById('consent-bar');if(!b)return;let ok=false;try{ok=localStorage.getItem('su-consent-v1')==='1'}catch(e){}if(ok)return;b.hidden=false;document.getElementById('consent-ok').addEventListener('click',()=>{try{localStorage.setItem('su-consent-v1','1')}catch(e){}b.hidden=true})})();

@@ -594,7 +594,11 @@ export function umbrellaPrice(um, students, teachers, n) {
   return UMBRELLA_PRICE_BY[hasLang ? "language" : "humanities"][n];
 }
 
-export function UmbrellaPanel({ umbrellas, students, teachers, slots, subjectMeta, actions }) {
+export function UmbrellaPanel({ umbrellas: allUmbrellas, students, teachers, slots, subjectMeta, actions, department }) {
+  // В каждой школе — только пакеты, где есть её предмет (смешанный пакет виден в обеих).
+  const deptOf = (id) => teachers.find((t) => t.id === (students.find((x) => x.id === id) || {}).teacherId)?.department;
+  const umbrellas = department ? (allUmbrellas || []).filter((u) => (u.memberIds || []).some((id) => deptOf(id) === department)) : allUmbrellas;
+  const price = UMBRELLA_PRICE_BY[department === "language" ? "language" : "humanities"];
   const [form, setForm] = useState(null);
   const [addRow, setAddRow] = useState({});
   const subjects = Object.keys(subjectMeta);
@@ -607,7 +611,7 @@ export function UmbrellaPanel({ umbrellas, students, teachers, slots, subjectMet
       <div className="row-gap" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
         <div>
           <h3 className="lib-title">🌂 «Под одним зонтом»: комплексные пакеты</h3>
-          <div className="hint-text">Один пакет на несколько предметов в любой комбинации. У каждого предмета свой преподаватель, занятия всех предметов списываются с общего остатка. На сайте: 8 занятий от 10 000 ₽, 12 занятий от 14 400 ₽.</div>
+          <div className="hint-text">Один пакет на несколько предметов в любой комбинации. У каждого предмета свой преподаватель, занятия всех предметов списываются с общего остатка. На сайте: 8 занятий от {rub(price[8])}, 12 занятий — {rub(price[12])}{department === "language" ? " (если в пакете есть язык)" : " (только история, обществознание, русский)"}.</div>
         </div>
         {!form && <button className="btn-small accent" onClick={() => setForm(blank())}><Plus size={13} /> Собрать пакет</button>}
       </div>
@@ -640,7 +644,7 @@ export function UmbrellaPanel({ umbrellas, students, teachers, slots, subjectMet
           <button className="btn-small" onClick={() => setForm({ ...form, rows: [...form.rows, { subject: "", teacherId: "" }] })}><Plus size={13} /> Ещё предмет</button>
           <div className="field-label">Размер пакета</div>
           <div className="row-gap">
-            {[8, 12].map((n) => <button key={n} className={"btn-small" + (form.total === n ? " accent" : "")} onClick={() => setForm({ ...form, total: n })}>{n} занятий · от {rub(UMBRELLA_PRICES[n])}</button>)}
+            {[8, 12].map((n) => <button key={n} className={"btn-small" + (form.total === n ? " accent" : "")} onClick={() => setForm({ ...form, total: n })}>{n} занятий · от {rub(price[n])}</button>)}
             <input type="number" min="2" className="mini-input" style={{ width: 90 }} value={form.total} onChange={(e) => setForm({ ...form, total: Number(e.target.value) })} /> <span className="hint-text">занятий</span>
           </div>
           <div className="row-gap" style={{ justifyContent: "flex-end" }}>
@@ -650,7 +654,7 @@ export function UmbrellaPanel({ umbrellas, students, teachers, slots, subjectMet
         </div>
       )}
 
-      {(umbrellas || []).length === 0 && !form && <div className="muted-text">Комплексных пакетов пока нет.</div>}
+      {(umbrellas || []).length === 0 && !form && <div className="muted-text">{department === "language" ? "В языковой школе комплексных пакетов пока нет." : department === "humanities" ? "В гуманитарной школе комплексных пакетов пока нет." : "Комплексных пакетов пока нет."}</div>}
       {(umbrellas || []).map((u) => {
         const st = umbrellaStats(u, students, teachers, slots, subjectMeta);
         const have = st.rows.map((r) => r.subject);

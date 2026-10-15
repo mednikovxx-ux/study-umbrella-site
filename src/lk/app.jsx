@@ -2864,7 +2864,7 @@ function AdminView({ department, teachers, students, schedule, sales, products, 
       )}
       {tab === "umbrella" && (
         <div className="card">
-          <UmbrellaPanel umbrellas={ext.umbrellas} students={students} teachers={teachers} slots={schedule} subjectMeta={SUBJECTS} actions={actions} />
+          <UmbrellaPanel umbrellas={ext.umbrellas} students={students} teachers={teachers} slots={schedule} subjectMeta={SUBJECTS} actions={actions} department={department} />
         </div>
       )}
       {tab === "groups" && (

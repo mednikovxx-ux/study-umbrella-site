@@ -80,7 +80,8 @@ document.querySelectorAll('dialog.rules').forEach(d=>{d.addEventListener('click'
 /* анимации: блоки плавно появляются при прокрутке */
 ;(()=>{if(!('IntersectionObserver' in window)||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
 document.documentElement.classList.add('anim');
-const sel='.sec-head,.aud-card,.dir,.plan,.step,.t-grid>li,.combo,.club,.review,.choice,.trust-row>li,.f-list>li,.rep-row';
+/* одни и те же блоки на всех страницах: главная, языки, ОГЭ/ЕГЭ, о школе, вакансии, блог */
+const sel='.sec-head,.aud-card,.dir,.plan,.step,.t-grid>li,.combo,.club,.review,.choice,.trust-row>li,.f-list>li,.rep-row,.page-hero .hero-text,.lang,.post,.other-card,.callout,.story-pic,.story-text,.promo,.faq-list>*,.t-filter';
 const io=new IntersectionObserver(es=>es.forEach(e=>{if(!e.isIntersecting)return;const el=e.target;io.unobserve(el);el.classList.add('in');
  setTimeout(()=>{el.classList.remove('rv','in');el.style.removeProperty('--d')},1400+(parseInt(el.style.getPropertyValue('--d'))||0))}),{rootMargin:'0px 0px -6% 0px'});
 document.querySelectorAll(sel).forEach(el=>{const sib=[...el.parentElement.children].filter(x=>x.matches(sel));

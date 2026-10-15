@@ -268,7 +268,11 @@ ul,ol{margin:0;padding:0;list-style:none}
 /* reviews */
 .reviews{background:var(--white)}
 .r-grid{columns:3;column-gap:28px}
-.r-grid>li{break-inside:avoid;margin-bottom:28px}
+.r-grid>li{break-inside:avoid;-webkit-column-break-inside:avoid;margin-bottom:28px}
+/* отзывы в колонках: inline-block не даёт карточке разорваться между колонками,
+   а сдвиг (transform) в колонках Safari рисует с артефактами — только тень и прозрачность */
+.r-grid>li{display:inline-flex;width:100%}
+.r-grid>.review:hover,.anim .r-grid>.rv{transform:none}
 @media (max-width:1200px){.r-grid{columns:2}}
 .review{background:var(--paper);border:2px solid var(--line);border-radius:32px;padding:32px;display:flex;flex-direction:column;gap:18px}
 .stars{color:#f2b33d;letter-spacing:2px;font-size:20px;line-height:1}

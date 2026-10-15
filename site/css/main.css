@@ -798,3 +798,4 @@ dialog.rules::backdrop{background:rgba(30,43,47,.45)}
 .phrases li{background:var(--white);border-radius:16px;padding:14px 18px;display:flex;flex-direction:column;gap:4px}
 .phrases b{font:600 18px/1.4 var(--body);color:var(--ink)}
 .phrases span{font-size:16px;color:var(--muted)}
+.prose .ticks{margin:4px 0 18px}

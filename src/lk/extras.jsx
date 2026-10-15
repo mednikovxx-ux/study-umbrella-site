@@ -1806,4 +1806,157 @@ const STATUS_CSS = `
 .st-reason { display:flex; justify-content:space-between; font-size:14px; }
 `;
 
-export const EXTRA_CSS = EXTRA_CSS_BASE + FORMAT_CSS + LESSONS_CSS + CHARTS_CSS + PAY_CSS + SELF_CSS + GOAL_CSS + TP_CSS + CLUB_CSS + STATUS_CSS;
+/* ---------- Итоги за период и отчёт о работе ----------
+   Одни и те же цифры видят ученик (вкладка «Прогресс») и преподаватель (карточка
+   ученика); отчёт собирается из них и скачивается файлом или сохраняется в PDF. */
+const PERIODS = { month: "Месяц", package: "Текущий пакет", all: "Всё время" };
+const ymd = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+const ruD = (iso) => (iso ? iso.slice(8, 10) + "." + iso.slice(5, 7) + "." + iso.slice(0, 4) : "");
+
+function periodRange(student, period) {
+  const t = today();
+  if (period === "month") { const d = new Date(); d.setDate(d.getDate() - 30); return { from: ymd(d), to: t }; }
+  if (period === "package" && student.packageAssignedAt) return { from: student.packageAssignedAt.slice(0, 10), to: t };
+  const dates = [...(student.checkpoints || []).map((c) => c.date), ...(student.homework || []).map((h) => h.createdAt)].filter(Boolean).sort();
+  return { from: dates[0] || "2000-01-01", to: t };
+}
+
+export function progressSummary(student, slots, period) {
+  const { from, to } = periodRange(student, period);
+  const inP = (d) => d && d >= from && d <= to;
+  const mine = (slots || []).filter((sl) => sl.studentId === student.id && sl.date < today());
+  const held = mine.filter((sl) => sl.status !== "cancelled" && sl.status !== "available" && inP(sl.date)).sort((a, b) => a.date.localeCompare(b.date));
+  const cancelled = mine.filter((sl) => sl.status === "cancelled" && inP(sl.date)).length;
+  const covered = [...new Set(held.flatMap((sl) => sl.topicsCovered || []))];
+  const topics = [...(student.grammarTopics || []), ...(student.vocabTopics || []), ...(student.examTopics || []), ...(student.examGrammar || []), ...(student.examVocab || [])];
+  const doneNow = topics.filter((x) => x.status === "done");
+  const doneInP = doneNow.filter((x) => inP((x.doneAt || "").slice(0, 10)));
+  const hw = (student.homework || []).filter((h) => inP(h.createdAt));
+  const hwDone = hw.filter((h) => ["submitted", "in_review", "reviewed"].includes(h.status)).length;
+  const checks = (student.checkpoints || []).filter((c) => inP(c.date) && c.maxScore).sort((a, b) => a.date.localeCompare(b.date));
+  const pctOf = (c) => Math.round((Number(c.achievedScore) / Number(c.maxScore)) * 100);
+  const avg = checks.length ? Math.round(checks.reduce((a, c) => a + pctOf(c), 0) / checks.length) : null;
+  // Weeks in a row (up to now) with at least one lesson.
+  const weekKey = (d) => { const x = new Date(d + "T12:00:00"); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return ymd(x); };
+  const weeks = new Set(mine.filter((sl) => sl.status !== "cancelled" && sl.status !== "available").map((sl) => weekKey(sl.date)));
+  let streak = 0; const w = new Date(weekKey(today()) + "T12:00:00");
+  if (!weeks.has(ymd(w))) w.setDate(w.getDate() - 7);
+  while (weeks.has(ymd(w))) { streak++; w.setDate(w.getDate() - 7); }
+  return {
+    from, to, held: held.length, cancelled, attendance: held.length + cancelled ? Math.round((held.length / (held.length + cancelled)) * 100) : null,
+    lessons: held, covered, doneInP, doneTotal: doneNow.length, topicsTotal: topics.length,
+    inProgress: topics.filter((x) => x.status === "in_progress"), todo: topics.filter((x) => (x.status || "todo") === "todo"),
+    hwTotal: hw.length, hwDone, hwPct: hw.length ? Math.round((hwDone / hw.length) * 100) : null,
+    checks: checks.map((c) => ({ ...c, pct: pctOf(c) })), avg, streak,
+  };
+}
+
+const esc = (v) => String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+export function reportHTML({ student, teacher, subjectLabel, sm, period }) {
+  const ex = student.examTarget;
+  const last = [...(student.checkpoints || [])].filter((c) => c.maxScore).sort((a, b) => (a.date || "").localeCompare(b.date || "")).pop();
+  const kpi = (v, l) => `<div class="k"><b>${esc(v)}</b><span>${esc(l)}</span></div>`;
+  const list = (arr) => (arr.length ? "<ul>" + arr.map((x) => `<li>${esc(x)}</li>`).join("") + "</ul>" : '<p class="m">—</p>');
+  const days = ex?.examDate ? Math.ceil((new Date(ex.examDate + "T12:00:00") - Date.now()) / 864e5) : null;
+  return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Отчёт о занятиях — ${esc(student.name)}</title>
+<style>
+@page{size:A4;margin:16mm}
+*{box-sizing:border-box}body{margin:0;background:#F5F0E8;color:#1E2B2F;font:15px/1.5 -apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+.page{max-width:820px;margin:24px auto;background:#fff;border-radius:24px;padding:40px 44px}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;border-bottom:2px solid #E2D9CB;padding-bottom:18px;margin-bottom:22px}
+.brand{font:700 20px/1.1 Georgia,serif;color:#B8303C}.brand small{display:block;font:500 12px/1.4 Arial,sans-serif;color:#5A6669;margin-top:4px}
+h1{font:700 30px/1.15 Georgia,serif;margin:0 0 4px}.sub{color:#5A6669;margin:0}
+h2{font:700 19px/1.2 Georgia,serif;margin:26px 0 10px}
+.ks{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.k{background:#F5F0E8;border-radius:14px;padding:12px 14px}.k b{display:block;font-size:24px;color:#2F6F73}.k span{font-size:12.5px;color:#5A6669}
+table{width:100%;border-collapse:collapse;font-size:14px}td,th{text-align:left;padding:7px 8px;border-bottom:1px solid #EEE7DA}th{color:#5A6669;font-weight:600}
+ul{margin:0;padding-left:20px}li{margin:3px 0}.m{color:#5A6669}
+.note{background:#FFF0C7;border-radius:14px;padding:14px 16px;white-space:pre-wrap}
+.bar{height:10px;background:#EEE7DA;border-radius:6px;overflow:hidden}.bar i{display:block;height:100%;background:#2F6F73}
+.foot{margin-top:28px;padding-top:14px;border-top:1px solid #E2D9CB;color:#5A6669;font-size:12.5px}
+@media print{body{background:#fff}.page{margin:0;padding:0;border-radius:0}}
+@media (max-width:640px){.page{padding:24px 18px;margin:0;border-radius:0}.ks{grid-template-columns:repeat(2,1fr)}}
+</style></head><body><div class="page">
+<div class="top"><div><h1>Отчёт о занятиях</h1><p class="sub">${esc(student.name)} · ${esc(subjectLabel)} · преподаватель ${esc(teacher?.name || "")}</p><p class="sub">${esc(PERIODS[period])}: ${ruD(sm.from)} — ${ruD(sm.to)}</p></div><div class="brand">Study Umbrella<small>онлайн-школа</small></div></div>
+<div class="ks">${kpi(sm.held, "уроков проведено")}${kpi(sm.attendance === null ? "—" : sm.attendance + "%", "посещаемость")}${kpi(sm.hwPct === null ? "—" : sm.hwPct + "%", "домашних заданий сдано")}${kpi(sm.avg === null ? "—" : sm.avg + "%", "средний результат проверок")}</div>
+<h2>Уровень и программа</h2>
+<p>Уровень: <b>${esc(student.startLevel)}</b> на старте → <b>${esc(student.currentLevel)}</b> сейчас${student.targetLevel ? ` · цель <b>${esc(student.targetLevel)}</b>` : ""}.</p>
+<p>Программа пройдена на ${sm.topicsTotal ? Math.round((sm.doneTotal / sm.topicsTotal) * 100) : 0}% (${sm.doneTotal} из ${sm.topicsTotal} тем).</p>
+<div class="bar"><i style="width:${sm.topicsTotal ? Math.round((sm.doneTotal / sm.topicsTotal) * 100) : 0}%"></i></div>
+${ex?.exam ? `<h2>Подготовка к экзамену: ${esc(ex.exam)}</h2><p>Цель: <b>${esc(targetText(ex) || "не задана")}</b>${ex.examDate ? ` · экзамен ${ruD(ex.examDate)}${days !== null && days >= 0 ? ` (через ${days} дн.)` : ""}` : ""}${last ? ` · последний результат <b>${esc(last.achievedScore)}/${esc(last.maxScore)}</b>` : ""}.</p>` : ""}
+<h2>Что прошли на уроках</h2>${list(sm.covered)}
+<h2>Освоенные темы за период</h2>${list(sm.doneInP.map((x) => x.name))}
+${sm.checks.length ? `<h2>Проверки и пробники</h2><table><tr><th>Дата</th><th>Что</th><th>Результат</th></tr>${sm.checks.map((c) => `<tr><td>${ruD(c.date)}</td><td>${esc(c.title)}</td><td>${esc(c.achievedScore)}/${esc(c.maxScore)} · ${c.pct}%</td></tr>`).join("")}</table>` : ""}
+<h2>Домашние задания</h2><p>Выдано ${sm.hwTotal}, сдано ${sm.hwDone}.</p>
+<h2>Над чем работаем дальше</h2>${list([...sm.inProgress, ...sm.todo.slice(0, 5)].map((x) => x.name))}
+${student.reportNote ? `<h2>Комментарий преподавателя</h2><div class="note">${esc(student.reportNote)}</div>` : ""}
+<div class="foot">Отчёт сформирован автоматически в личном кабинете Study Umbrella ${ruD(today())}.</div>
+</div></body></html>`;
+}
+
+function downloadReport(html, student, period) {
+  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `Отчёт ${student.name} — ${PERIODS[period].toLowerCase()} ${today()}.html`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+function printReport(html) {
+  const w = window.open("", "_blank");
+  if (!w) return false;
+  w.document.open(); w.document.write(html); w.document.close();
+  setTimeout(() => { w.focus(); w.print(); }, 400);
+  return true;
+}
+
+export function ProgressReport({ student, teacher, subjectLabel, slots, canEdit, onNote }) {
+  const [period, setPeriod] = useState("month");
+  const [msg, setMsg] = useState("");
+  const sm = progressSummary(student, slots, period);
+  const tile = (v, l, hint) => <div className="pr-k" title={hint || ""}><b>{v}</b><span>{l}</span></div>;
+  const html = () => reportHTML({ student, teacher, subjectLabel, sm, period });
+  return (
+    <div className="ch-card ch-wide pr">
+      <div className="pr-head">
+        <div className="ch-title" style={{ margin: 0 }}>📊 Итоги: {ruD(sm.from)} — {ruD(sm.to)}</div>
+        <div className="pr-tabs">{Object.entries(PERIODS).map(([k, v]) => <button key={k} className={"btn-small" + (period === k ? " accent" : "")} onClick={() => setPeriod(k)} disabled={k === "package" && !student.packageAssignedAt}>{v}</button>)}</div>
+      </div>
+      <div className="pr-ks">
+        {tile(sm.held, "уроков проведено")}
+        {tile(sm.attendance === null ? "—" : sm.attendance + "%", "посещаемость", "Проведённые уроки от всех запланированных, без отменённых")}
+        {tile(sm.hwPct === null ? "—" : sm.hwPct + "%", "ДЗ сдано", `${sm.hwDone} из ${sm.hwTotal}`)}
+        {tile(sm.doneInP.length, "тем освоено", "Темы, отмеченные пройденными за период")}
+        {tile(sm.avg === null ? "—" : sm.avg + "%", "средний результат проверок")}
+        {tile(sm.streak ? "🔥 " + sm.streak : "—", sm.streak === 1 ? "неделя подряд с уроками" : "недель подряд с уроками")}
+      </div>
+      {sm.covered.length > 0 && <div className="pr-cov"><span className="hint-text">Прошли на уроках:</span> {sm.covered.map((x) => <span key={x} className="pill-mini">{x}</span>)}</div>}
+      {canEdit ? (
+        <textarea className="mini-textarea" placeholder="Комментарий для отчёта: успехи, на что обратить внимание, рекомендации родителям" value={student.reportNote || ""} onChange={(e) => onNote(e.target.value)} />
+      ) : student.reportNote ? <div className="pr-note"><b>Комментарий преподавателя:</b> {student.reportNote}</div> : null}
+      <div className="row-gap" style={{ flexWrap: "wrap", marginTop: 10 }}>
+        <button className="btn-small accent" onClick={() => downloadReport(html(), student, period)}>📄 Скачать отчёт</button>
+        <button className="btn-small" onClick={() => setMsg(printReport(html()) ? "" : "Браузер заблокировал окно: разрешите всплывающие окна для сайта.")}>🖨 Печать или PDF</button>
+        <span className="hint-text">Отчёт собирается сам из уроков, тем, домашки и проверок за выбранный период.</span>
+      </div>
+      {msg && <div className="ov-warn">{msg}</div>}
+    </div>
+  );
+}
+
+const REPORT_CSS = `
+.pr-head { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+.pr-tabs { display:flex; gap:6px; flex-wrap:wrap; }
+.pr-ks { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:10px; }
+.pr-k { background:#f5f0e8; border-radius:14px; padding:12px; display:flex; flex-direction:column; gap:2px; }
+.pr-k b { font-size:24px; color:#2F6F73; line-height:1.1; }
+.pr-k span { font-size:12px; color:#5A6669; line-height:1.3; }
+.pr-cov { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:12px 0 4px; }
+.pr-note { margin-top:10px; background:#FFF0C7; border-radius:12px; padding:10px 12px; font-size:14px; }
+.pr .mini-textarea { margin-top:10px; width:100%; }
+@media (max-width:900px){ .pr-ks { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+@media (max-width:520px){ .pr-ks { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+`;
+
+export const EXTRA_CSS = EXTRA_CSS_BASE + FORMAT_CSS + LESSONS_CSS + CHARTS_CSS + PAY_CSS + SELF_CSS + GOAL_CSS + TP_CSS + CLUB_CSS + STATUS_CSS + REPORT_CSS;

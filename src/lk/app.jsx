@@ -7,7 +7,7 @@ import {
 
 import { storage } from "./storage.js";
 import AdminAccess from "./admin-access.jsx";
-import { StatusFlag, StatusDetails, statusPatch, FinishReasons, ClubsPanel, TeacherClubs, StudentClubs, CLUB_PRICE, LessonFiles, TargetPicker, targetText, SelfOverviewPanel, kindForStudent, GoalMarker, CHECK_KINDS, SelfMonthPanel, LESSON_KINDS, PayrollCard, slotKind, teacherPayroll, UmbrellaPanel, umbrellaOf, UMBRELLA_PRICES, AdminInbox, CallAdminButton, EmojiPicker, EXTRA_CSS, FormatBadge, FormatPanel, GroupsPanel, LibraryPanel, PayRequestModal, ProgramEditor, ProgressCharts, QUICK_REACTIONS, StudentLessons, StudentOverview, CHANGE_DEADLINE_H, PAY_DEADLINE_H, seedLibrary, withPackagePaid } from "./extras.jsx";
+import { ProgressReport, StatusFlag, StatusDetails, statusPatch, FinishReasons, ClubsPanel, TeacherClubs, StudentClubs, CLUB_PRICE, LessonFiles, TargetPicker, targetText, SelfOverviewPanel, kindForStudent, GoalMarker, CHECK_KINDS, SelfMonthPanel, LESSON_KINDS, PayrollCard, slotKind, teacherPayroll, UmbrellaPanel, umbrellaOf, UMBRELLA_PRICES, AdminInbox, CallAdminButton, EmojiPicker, EXTRA_CSS, FormatBadge, FormatPanel, GroupsPanel, LibraryPanel, PayRequestModal, ProgramEditor, ProgressCharts, QUICK_REACTIONS, StudentLessons, StudentOverview, CHANGE_DEADLINE_H, PAY_DEADLINE_H, seedLibrary, withPackagePaid } from "./extras.jsx";
 const LOGO_DATA_URI = "/img/logo.png";
 
 /* ----------------------------- helpers ----------------------------- */
@@ -2354,6 +2354,10 @@ function TeacherView({ teacher, teachers, students, schedule, actions, perm, pro
                     <PackageTracker student={selected} actions={actions} canEdit={perm.package} products={products} slots={mySlots} subject={teacher.subject} />
                   </div>
 
+                  <div style={{ marginTop: 14 }}>
+                    <ProgressReport student={selected} teacher={teacher} subjectLabel={subjMeta.label} slots={mySlots} canEdit={!!(perm.profile || perm.package)} onNote={(v) => actions.updateStudent(selected.id, { reportNote: v })} />
+                  </div>
+
 
                   <div className="field-block">
                     <div className="field-label">Желаемый результат</div>
@@ -2631,6 +2635,7 @@ function StudentView({ student, teacher, schedule, actions, products, ext, onSwi
 
       {tab === "progress" && <>
         <GoalMarker student={student} levels={subjMeta.levels} />
+        <ProgressReport student={student} teacher={teacher} subjectLabel={subjMeta.label} slots={mySlots} canEdit={false} />
         <ProgressCharts student={student} subjMeta={{ ...subjMeta, bank: GRAMMAR_BANK[teacher.subject] || {} }} slots={mySlots} />
         {student.format === "self" && <SelfMonthPanel student={student} slots={mySlots} canEdit={false} actions={actions} />}
         <div className="card">
@@ -3909,7 +3914,7 @@ export default function App({ session, onLogout }) {
       return "✅ Поставлено " + per + " занятий для «" + g.name + "» каждому участнику (" + (g.studentIds || []).length + ").";
     },
     removeTopic: (studentId, kind, topicId) => saveStudents(students.map((s) => s.id === studentId ? { ...s, [kind]: s[kind].filter((t) => t.id !== topicId) } : s)),
-    cycleTopicStatus: (studentId, kind, topicId) => saveStudents(students.map((s) => s.id === studentId ? { ...s, [kind]: s[kind].map((t) => t.id === topicId ? { ...t, status: nextTopicStatus(t.status) } : t) } : s)),
+    cycleTopicStatus: (studentId, kind, topicId) => saveStudents(students.map((s) => s.id === studentId ? { ...s, [kind]: s[kind].map((t) => { if (t.id !== topicId) return t; const st = nextTopicStatus(t.status); return { ...t, status: st, doneAt: st === "done" ? isoDate(0) : undefined }; }) } : s)),
     setExamTarget: (studentId, examTarget) => saveStudents(students.map((s) => s.id === studentId ? { ...s, examTarget, examTopics: examTarget ? (s.examTopics || []) : [] } : s)),
     addMaterial: (studentId, title, note, url, file) => saveStudents(students.map((s) => s.id === studentId ? { ...s, materials: [...(s.materials || []), { id: uid("m"), title, note, url: url || "", fileName: file?.name || "", fileType: file?.type || "", fileDataUrl: file?.dataUrl || "" }] } : s)),
     removeMaterial: (studentId, matId) => saveStudents(students.map((s) => s.id === studentId ? { ...s, materials: (s.materials || []).filter((m) => m.id !== matId) } : s)),

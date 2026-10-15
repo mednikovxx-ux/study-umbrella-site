@@ -10,10 +10,19 @@
  var f=document.getElementById('lead'),msg=document.getElementById('form-msg');
  if(f)f.addEventListener('submit',function(e){
   e.preventDefault();msg.hidden=false;
-  if(!f.checkValidity()){msg.textContent='Заполните имя и контакт и отметьте согласие — без них мы не сможем связаться.';return}
-  /* ПОДКЛЮЧИТЬ: отправку заявки в Telegram-бота, CRM или таблицу заявок */
-  if(window.suGoal)window.suGoal('lead');
-  msg.textContent='Заявка заполнена. Сейчас форма работает в демо-режиме и никуда не отправляется — подключим её к Telegram-боту или таблице заявок при запуске.';
+  var v=function(n){var i=f.elements[n];return i?i.value.trim():''};
+  var phone=v('phone'),handle=v('handle');
+  if(!f.checkValidity()){msg.textContent='Заполните имя, телефон и ник в Telegram или ссылку на ВКонтакте и отметьте согласие — без них мы не сможем связаться.';return}
+  if(phone.replace(/\D/g,'').length<10){msg.textContent='Проверьте номер телефона: в нём должно быть 10–11 цифр.';f.elements.phone.focus();return}
+  if(!/^@?[A-Za-z0-9_]{4,32}$|t\.me\/[A-Za-z0-9_]{4,}|vk\.(com|ru)\/[A-Za-z0-9_.]+/i.test(handle)){msg.textContent='Напишите ник в Telegram (например, @anna_study) или ссылку на страницу ВКонтакте (vk.com/…).';f.elements.handle.focus();return}
+  var st=f.querySelector('input[name=start]:checked'),btn=f.querySelector('button[type=submit]');
+  var fields={name:v('name'),phone:phone,handle:handle,subject:v('subject'),start:st?st.closest('label').querySelector('span').firstChild.textContent.trim():'',page:location.pathname,website:v('website')};
+  btn.disabled=true;msg.textContent='Отправляем…';
+  /* text/plain без чтения ответа: Google Apps Script не отдаёт CORS-заголовки */
+  fetch(f.dataset.endpoint,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'site_lead',fields:fields})})
+   .then(function(){if(window.suGoal)window.suGoal('lead');msg.textContent='Спасибо! Заявка принята — менеджер напишет вам в течение рабочего дня.';f.reset()})
+   .catch(function(){msg.textContent='Не получилось отправить. Проверьте интернет и попробуйте ещё раз — или напишите нам в Telegram.'})
+   .finally(function(){btn.disabled=false});
  });
 })();
 

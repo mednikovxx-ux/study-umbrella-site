@@ -16,7 +16,7 @@
 <link rel="preload" href="/fonts/onest-cyrillic-400-normal.woff2" as="font" type="font/woff2" crossorigin>
 <!-- ПОДКЛЮЧИТЬ при запуске: Яндекс.Метрика (вставить код счётчика сюда) и подтверждение в Яндекс.Вебмастере:
 <meta name="yandex-verification" content="КОД"> -->
-<link rel="stylesheet" href="/css/main.css?v=936f5752">
+<link rel="stylesheet" href="/css/main.css?v=45289a28">
 <title>О школе Study Umbrella — онлайн-школа языков и подготовки к ОГЭ и ЕГЭ</title>
 <meta name="description" content="Study Umbrella — онлайн-школа, где языки и подготовка к ОГЭ и ЕГЭ собраны под одним зонтом. Как мы учим, как выбираем преподавателей и почему всё важное — письменно.">
 <link rel="canonical" href="https://example.com/o-shkole/">
@@ -191,7 +191,7 @@
     <a class="btn light" href="https://vk.ru/study_umbrella" rel="noopener">Написать ВКонтакте</a>
    </div>
   </div>
-  <form class="form" id="lead" novalidate>
+  <form class="form" id="lead" novalidate data-endpoint="https://script.google.com/macros/s/AKfycbwDkUNuEN3xirkdk7ztPiwphDJUFejyOfvPolkCSft2XT9qCizY0VhFH1NpAnZC8Hy8/exec">
    <h3>Запись</h3>
    <fieldset class="opts">
     <legend>С чего начнём</legend>
@@ -201,10 +201,12 @@
    </fieldset>
    <div class="field"><label for="f-subj">Язык или гуманитарный предмет</label><input id="f-subj" name="subject" placeholder="Например: английский, ЕГЭ по истории" autocomplete="off"></div>
    <div class="field"><label for="f-name">Как к вам обращаться</label><input id="f-name" name="name" placeholder="Имя" autocomplete="given-name" required></div>
-   <div class="field"><label for="f-contact">Телефон или Telegram</label><input id="f-contact" name="contact" inputmode="tel" placeholder="+7 ___ ___-__-__  или  @username" required></div>
+   <div class="field"><label for="f-phone">Телефон</label><input id="f-phone" name="phone" type="tel" inputmode="tel" placeholder="+7 ___ ___-__-__" autocomplete="tel" required></div>
+   <div class="field"><label for="f-handle">Ник в Telegram или ссылка на ВКонтакте</label><input id="f-handle" name="handle" placeholder="@username  или  vk.com/id…" autocomplete="off" autocapitalize="off" spellcheck="false" required><small class="field-hint">По нику мы точно вас найдём: по номеру это получается не всегда.</small></div>
+   <div class="hp" aria-hidden="true"><label for="f-website">Сайт</label><input id="f-website" name="website" tabindex="-1" autocomplete="off"></div>
    <label class="consent" for="f-consent"><input type="checkbox" id="f-consent" required><span>Соглашаюсь с <a href="/privacy/">политикой конфиденциальности</a> и даю согласие на обработку персональных данных</span></label>
    <button class="btn primary wide" type="submit">Записаться</button>
-   <p class="form-note">Напишем или позвоним — как вам удобнее. Без рассылок.</p>
+   <p class="form-note">Напишем в Telegram или ВКонтакте, при необходимости позвоним. Без рассылок.</p>
    <p class="form-msg" id="form-msg" role="status" hidden></p>
   </form>
  </div>
@@ -250,6 +252,6 @@
  </div>
 </dialog>
 
-<script src="/js/main.js?v=936f5752" defer></script>
+<script src="/js/main.js?v=45289a28" defer></script>
 </body>
 </html>

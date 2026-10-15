@@ -799,3 +799,22 @@ dialog.rules::backdrop{background:rgba(30,43,47,.45)}
 .phrases b{font:600 18px/1.4 var(--body);color:var(--ink)}
 .phrases span{font-size:16px;color:var(--muted)}
 .prose .ticks{margin:4px 0 18px}
+/* обложка ОГЭ/ЕГЭ: тетрадь в клетку с полями и оценкой */
+.post-cover.exam{position:relative;overflow:hidden;color:var(--red-text);
+ background:linear-gradient(to right,transparent 46px,var(--red) 46px 48px,transparent 48px),
+  repeating-linear-gradient(to right,transparent 0 23px,rgba(47,111,115,.18) 23px 24px),
+  repeating-linear-gradient(to bottom,transparent 0 23px,rgba(47,111,115,.18) 23px 24px),var(--white)}
+.post-cover.exam .cover-sub{color:var(--ink)}
+.exam-mark{position:absolute;right:26px;top:18px;width:56px;height:56px;border:3px solid var(--red);border-radius:50%;display:grid;place-items:center;font:700 34px/1 var(--hand);color:var(--red);transform:rotate(-10deg)}
+/* обложка клуба: реплики на разных языках */
+.post-cover.club-cover{position:relative;overflow:hidden;background:var(--teal);color:var(--white)}
+.post-cover.club-cover .cover-hand,.post-cover.club-cover .cover-sub{position:relative}
+.bub{position:absolute;font:700 20px/1 var(--hand);color:var(--ink);padding:8px 14px;border-radius:16px}
+.bub::after{content:"";position:absolute;bottom:-7px;left:16px;border:8px solid transparent;border-top-color:inherit;border-bottom:0}
+.bub.b1{top:16px;left:18px;background:var(--butter);border-color:var(--butter);transform:rotate(-6deg)}
+.bub.b2{top:20px;right:20px;background:var(--sky);border-color:var(--sky);transform:rotate(5deg)}
+.bub.b3{bottom:20px;left:24px;background:var(--lilac);border-color:var(--lilac);transform:rotate(4deg)}
+.bub.b4{bottom:18px;right:22px;background:var(--red-soft);border-color:var(--red-soft);transform:rotate(-5deg)}
+.post-cover.club-cover .cover-hand{font-size:clamp(30px,2.6vw,42px);white-space:nowrap}
+.post-cover.club-cover .cover-sub{font-size:19px}
+.bub{font-size:17px;padding:6px 12px}

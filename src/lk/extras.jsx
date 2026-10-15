@@ -1830,7 +1830,8 @@ export function progressSummary(student, slots, period) {
   const covered = [...new Set(held.flatMap((sl) => sl.topicsCovered || []))];
   const topics = [...(student.grammarTopics || []), ...(student.vocabTopics || []), ...(student.examTopics || []), ...(student.examGrammar || []), ...(student.examVocab || [])];
   const doneNow = topics.filter((x) => x.status === "done");
-  const doneInP = doneNow.filter((x) => inP((x.doneAt || "").slice(0, 10)));
+  // Темы, отмеченные до появления даты (doneAt), считаем только за «всё время».
+  const doneInP = doneNow.filter((x) => (x.doneAt ? inP(x.doneAt.slice(0, 10)) : period === "all"));
   const hw = (student.homework || []).filter((h) => inP(h.createdAt));
   const hwDone = hw.filter((h) => ["submitted", "in_review", "reviewed"].includes(h.status)).length;
   const checks = (student.checkpoints || []).filter((c) => inP(c.date) && c.maxScore).sort((a, b) => a.date.localeCompare(b.date));
@@ -1887,7 +1888,7 @@ ul{margin:0;padding-left:20px}li{margin:3px 0}.m{color:#5A6669}
 ${ex?.exam ? `<h2>Подготовка к экзамену: ${esc(ex.exam)}</h2><p>Цель: <b>${esc(targetText(ex) || "не задана")}</b>${ex.examDate ? ` · экзамен ${ruD(ex.examDate)}${days !== null && days >= 0 ? ` (через ${days} дн.)` : ""}` : ""}${last ? ` · последний результат <b>${esc(last.achievedScore)}/${esc(last.maxScore)}</b>` : ""}.</p>` : ""}
 <h2>Что прошли на уроках</h2>${list(sm.covered)}
 <h2>Освоенные темы за период</h2>${list(sm.doneInP.map((x) => x.name))}
-${sm.checks.length ? `<h2>Проверки и пробники</h2><table><tr><th>Дата</th><th>Что</th><th>Результат</th></tr>${sm.checks.map((c) => `<tr><td>${ruD(c.date)}</td><td>${esc(c.title)}</td><td>${esc(c.achievedScore)}/${esc(c.maxScore)} · ${c.pct}%</td></tr>`).join("")}</table>` : ""}
+${sm.checks.length ? `<h2>Проверки и пробники</h2>${sm.checks.length > 1 ? `<p>Рост за период: <b>${sm.checks[0].pct}% → ${sm.checks[sm.checks.length - 1].pct}%</b> (${sm.checks[sm.checks.length - 1].pct - sm.checks[0].pct >= 0 ? "+" : ""}${sm.checks[sm.checks.length - 1].pct - sm.checks[0].pct} п.).</p>` : ""}<table><tr><th>Дата</th><th>Что</th><th>Результат</th></tr>${sm.checks.map((c) => `<tr><td>${ruD(c.date)}</td><td>${esc(c.title)}</td><td>${esc(c.achievedScore)}/${esc(c.maxScore)} · ${c.pct}%</td></tr>`).join("")}</table>` : ""}
 <h2>Домашние задания</h2><p>Выдано ${sm.hwTotal}, сдано ${sm.hwDone}.</p>
 <h2>Над чем работаем дальше</h2>${list([...sm.inProgress, ...sm.todo.slice(0, 5)].map((x) => x.name))}
 ${student.reportNote ? `<h2>Комментарий преподавателя</h2><div class="note">${esc(student.reportNote)}</div>` : ""}
@@ -1928,7 +1929,7 @@ export function ProgressReport({ student, teacher, subjectLabel, slots, canEdit,
         {tile(sm.attendance === null ? "—" : sm.attendance + "%", "посещаемость", "Проведённые уроки от всех запланированных, без отменённых")}
         {tile(sm.hwPct === null ? "—" : sm.hwPct + "%", "ДЗ сдано", `${sm.hwDone} из ${sm.hwTotal}`)}
         {tile(sm.doneInP.length, "тем освоено", "Темы, отмеченные пройденными за период")}
-        {tile(sm.avg === null ? "—" : sm.avg + "%", "средний результат проверок")}
+        {tile(sm.avg === null ? "—" : sm.avg + "%", sm.checks.length > 1 ? `средний результат проверок · ${sm.checks[0].pct}% → ${sm.checks[sm.checks.length - 1].pct}%` : "средний результат проверок")}
         {tile(sm.streak ? "🔥 " + sm.streak : "—", sm.streak === 1 ? "неделя подряд с уроками" : "недель подряд с уроками")}
       </div>
       {sm.covered.length > 0 && <div className="pr-cov"><span className="hint-text">Прошли на уроках:</span> {sm.covered.map((x) => <span key={x} className="pill-mini">{x}</span>)}</div>}

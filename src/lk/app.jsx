@@ -7,7 +7,7 @@ import {
 
 import { storage } from "./storage.js";
 import AdminAccess from "./admin-access.jsx";
-import { umbrellaPrice, ProgressReport, StatusFlag, StatusDetails, statusPatch, FinishReasons, ClubsPanel, TeacherClubs, StudentClubs, CLUB_PRICE, LessonFiles, TargetPicker, targetText, SelfOverviewPanel, kindForStudent, GoalMarker, CHECK_KINDS, SelfMonthPanel, LESSON_KINDS, PayrollCard, slotKind, teacherPayroll, UmbrellaPanel, umbrellaOf, UMBRELLA_PRICES, AdminInbox, CallAdminButton, EmojiPicker, EXTRA_CSS, FormatBadge, FormatPanel, GroupsPanel, LibraryPanel, PayRequestModal, ProgramEditor, ProgressCharts, QUICK_REACTIONS, StudentLessons, StudentOverview, CHANGE_DEADLINE_H, PAY_DEADLINE_H, seedLibrary, withPackagePaid } from "./extras.jsx";
+import { SELF_DAYS, selfTerm, umbrellaPrice, ProgressReport, StatusFlag, StatusDetails, statusPatch, FinishReasons, ClubsPanel, TeacherClubs, StudentClubs, CLUB_PRICE, LessonFiles, TargetPicker, targetText, SelfOverviewPanel, kindForStudent, GoalMarker, CHECK_KINDS, SelfMonthPanel, LESSON_KINDS, PayrollCard, slotKind, teacherPayroll, UmbrellaPanel, umbrellaOf, UMBRELLA_PRICES, AdminInbox, CallAdminButton, EmojiPicker, EXTRA_CSS, FormatBadge, FormatPanel, GroupsPanel, LibraryPanel, PayRequestModal, ProgramEditor, ProgressCharts, QUICK_REACTIONS, StudentLessons, StudentOverview, CHANGE_DEADLINE_H, PAY_DEADLINE_H, seedLibrary, withPackagePaid } from "./extras.jsx";
 const LOGO_DATA_URI = "/img/logo.png";
 
 /* ----------------------------- helpers ----------------------------- */
@@ -16,6 +16,7 @@ function uid(prefix = "id") {
   return prefix + "_" + Math.random().toString(36).slice(2, 9);
 }
 
+const isoAdd = (iso, n) => { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + n); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
 function isoDate(offsetDays = 0) {
   const d = new Date();
   d.setDate(d.getDate() + offsetDays);
@@ -435,7 +436,7 @@ const seedStudents = [
     startLevel: "A2", currentLevel: "B1", goal: "Заговорить на английском для работы", status: "active", planType: "package", startNote: "Понимает, но боится говорить.",
     grammarTopics: [{ id: uid("g"), name: "Present Perfect", status: "in_progress" }], vocabTopics: [{ id: uid("v"), name: "Work & Career", status: "in_progress" }],
     materials: [], homework: [], messages: [],
-    packageProductId: null, packageTotal: 4, packageAssignedAt: isoDate(-20), packageLabel: "«Сам, но не один»: абонемент на месяц, 4 занятия", checkpoints: [], examTarget: null, examTopics: [], examGrammar: [], examVocab: [], examMaterials: [], canRequestTeacherChange: false, teacherChangeRequest: null,
+    packageProductId: null, packageTotal: 4, packageAssignedAt: isoDate(-20), packageLabel: "«Сам, но не один»: абонемент на 4 недели, 4 занятия", checkpoints: [], examTarget: null, examTopics: [], examGrammar: [], examVocab: [], examMaterials: [], canRequestTeacherChange: false, teacherChangeRequest: null,
     format: "self",
     pageTheme: { bannerColor: "", bannerEmoji: "", accentColor: "", stickers: [] },
   },
@@ -1826,7 +1827,7 @@ function PackageTracker({ student, actions, canEdit, products, slots, subject })
           <div className="package-quick-picks">
             <button className={"btn-small" + (isIndividual ? " accent" : "")} onClick={pickIndividual}>Индивидуальный план</button>
             {PRESETS.map((n) => <button key={n} className={"btn-small" + (isPreset(n) ? " accent" : "")} onClick={() => pickStandard(n)}>Пакет на {n} занятий</button>)}
-            {student.format === "self" && <button className="btn-small" onClick={() => { actions.setPackagePlan(student.id, { packageProductId: null, packageTotal: 4, packageLabel: "«Сам, но не один»: абонемент на месяц, 4 занятия" }); setExpanded(false); }}>☂️ Абонемент на месяц (4 занятия)</button>}
+            {student.format === "self" && <button className="btn-small" onClick={() => { actions.setPackagePlan(student.id, { packageProductId: null, packageTotal: 4, packageLabel: "«Сам, но не один»: абонемент на 4 недели, 4 занятия" }); setExpanded(false); }}>☂️ Абонемент на месяц (4 занятия)</button>}
             <button className={"btn-small" + (customOpen || isCustomActive ? " accent" : "")} onClick={() => setCustomOpen((v) => !v)}>Свой вариант</button>
           </div>
           {customOpen && (
@@ -2550,7 +2551,7 @@ function StudentView({ student, teacher, schedule, actions, products, ext, onSwi
   const [payOpen, setPayOpen] = useState(false);
   // Lessons covered by the package count as paid: the link opens for them.
   const mySlots = withPackagePaid(student, schedule.filter((sl) => sl.studentId === student.id));
-  const ctx = { students: ext.students, teachers: ext.teachers, groups: ext.groups, umbrellas: ext.umbrellas, allSlots: schedule, subjectMeta: SUBJECTS };
+  const ctx = { students: ext.students, teachers: ext.teachers, groups: ext.groups, umbrellas: ext.umbrellas, allSlots: schedule, subjectMeta: SUBJECTS, actions };
   const T = (key, icon, label) => <button className={tab === key ? "tab active" : "tab"} onClick={() => setTab(key)}>{icon} {label}</button>;
 
   return (
@@ -3789,10 +3790,22 @@ export default function App({ session, onLogout }) {
     // «Сам, но не один»: the format plus a month subscription of 4 lessons.
     startSelf: (studentId) => {
       const now = Date.now();
-      saveStudents(students.map((s) => (s.id === studentId ? { ...s, format: "self", planType: "package", packageProductId: null, packageTotal: 4, packageAssignedAt: isoDate(0), packageLabel: "«Сам, но не один»: абонемент на месяц, 4 занятия" } : s)));
+      saveStudents(students.map((s) => (s.id === studentId ? { ...s, format: "self", planType: "package", packageProductId: null, packageTotal: 4, packageAssignedAt: isoDate(0), packageLabel: "«Сам, но не один»: абонемент на 4 недели, 4 занятия", selfStart: isoDate(0), selfUntil: isoDate(SELF_DAYS - 1), selfFrozenAt: "", selfRequest: null } : s)));
       saveSchedule(schedule.map((sl) => (sl.studentId === studentId && !sl.groupId && sl.type !== "trial" && new Date(sl.date + "T" + sl.time + ":00").getTime() > now ? { ...sl, format: "self" } : sl)));
     },
-    renewSelf: (studentId) => saveStudents(students.map((s) => (s.id === studentId ? { ...s, packageTotal: 4, packageAssignedAt: isoDate(0), packageLabel: "«Сам, но не один»: абонемент на месяц, 4 занятия" } : s))),
+    renewSelf: (studentId) => saveStudents(students.map((s) => (s.id === studentId ? { ...s, packageTotal: 4, packageAssignedAt: isoDate(0), packageLabel: "«Сам, но не один»: абонемент на 4 недели, 4 занятия", selfStart: isoDate(0), selfUntil: isoDate(SELF_DAYS - 1), selfFrozenAt: "", selfRequest: null } : s))),
+    // Срок абонемента: продление, заморозка (дни паузы добавляются к сроку), запросы ученика.
+    extendSelf: (studentId, days) => saveStudents(students.map((s) => (s.id === studentId ? { ...s, selfStart: selfTerm(s).start, selfUntil: isoAdd(selfTerm(s).until, days), selfRequest: null } : s))),
+    freezeSelf: (studentId) => saveStudents(students.map((s) => (s.id === studentId ? { ...s, selfStart: selfTerm(s).start, selfUntil: selfTerm(s).until, selfFrozenAt: isoDate(0), selfRequest: null } : s))),
+    unfreezeSelf: (studentId) => saveStudents(students.map((s) => { if (s.id !== studentId) return s; const tm = selfTerm(s); const days = Math.max(0, Math.round((new Date(isoDate(0) + "T12:00:00") - new Date(tm.frozen + "T12:00:00")) / 864e5)); return { ...s, selfUntil: isoAdd(tm.until, days), selfFrozenAt: "", selfRequest: null }; })),
+    clearSelfRequest: (studentId) => saveStudents(students.map((s) => (s.id === studentId ? { ...s, selfRequest: null } : s))),
+    requestSelf: (studentId, kind, note) => {
+      const at = new Date().toISOString();
+      const reason = kind === "freeze" ? "Заморозка абонемента «Сам, но не один»" : "Продление абонемента «Сам, но не один»";
+      const msg = { id: uid("smsg"), sender: "student", text: "🙋 " + reason + (note ? ". " + note : ""), attachment: null, reactions: {}, at };
+      saveCalls([...calls, { id: uid("call"), fromRole: "student", fromId: studentId, reason, text: note || "", at, status: "open" }]);
+      saveStudents(students.map((s) => (s.id === studentId ? { ...s, selfRequest: { kind, note: note || "", at }, supportMessages: [...(s.supportMessages || []), msg] } : s)));
+    },
     setFormat: (studentId, format) => {
       saveStudents(students.map((s) => (s.id === studentId ? { ...s, format } : s)));
       const now = Date.now();

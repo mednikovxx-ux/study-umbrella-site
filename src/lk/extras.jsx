@@ -84,12 +84,13 @@ export function StudentOverview({ student, teacher, subjMeta, slots, payRequests
       </div>
       <div className="ov-grid">
         <div className="ov-card">
-          <div className="ov-label">{fmt === "self" ? "☂️ Абонемент на месяц" : fmt === "umbrella" ? "🌂 Комплексный пакет" : "📦 Пакет"}</div>
+          <div className="ov-label">{fmt === "self" ? "☂️ Абонемент на 4 недели" : fmt === "umbrella" ? "🌂 Комплексный пакет" : "📦 Пакет"}</div>
           {pk.total ? <>
             <div className="ov-big">{pk.left} <span>из {pk.total} осталось</span></div>
             <div className="progress-track"><div className="progress-fill" style={{ width: Math.round(pk.used / pk.total * 100) + "%" }} /></div>
             <div className="ov-note">Пройдено {lessonsWord(pk.used)}{student.packageLabel && !um ? " · " + student.packageLabel : ""}</div>
           </> : <div className="ov-note">Пакет не оформлен: занятия оплачиваются по одному.</div>}
+          {fmt === "self" && ctx.actions && <SelfTerm student={student} actions={ctx.actions} />}
           {pk.total > 0 && pk.left <= 1 && <div className="ov-warn">{pk.left === 0 ? "Занятия в пакете закончились" : "Осталось последнее занятие"}: самое время продлить.</div>}
           <button className="btn-small accent" style={{ marginTop: 10 }} onClick={onPay}><CreditCard size={13} /> Оплатить / продлить</button>
         </div>
@@ -494,7 +495,7 @@ export const EXTRA_CSS_BASE = `
 
 export const FORMATS = {
   individual: { icon: "👤", label: "Индивидуально", hint: "Один на один с преподавателем, программа под цель. Пакеты 4/6/8/12 или разовые занятия." },
-  self: { icon: "☂️", label: "«Сам, но не один»", hint: "Абонемент на месяц: одно занятие в неделю (4 в месяц), между ними задание под пробелы и письменный разбор." },
+  self: { icon: "☂️", label: "«Сам, но не один»", hint: "Абонемент на 4 недели: одно занятие в неделю (4 занятия), между ними задание под пробелы и письменный разбор." },
   umbrella: { icon: "🌂", label: "«Под одним зонтом»", hint: "Комплексный пакет: несколько предметов в любой комбинации в одном пакете, у каждого предмета свой преподаватель, остаток общий." },
   pair: { icon: "👥", label: "В паре", hint: "Только языки. Занятия вдвоём со своим партнёром по общему расписанию. Цена за одного." },
   group: { icon: "👨‍👩‍👧", label: "Групповой курс", hint: "3–4 человека, курс 4 недели: 8 или 12 занятий, оплачивается целиком. Стартует, когда оплатили минимум трое." },
@@ -1440,6 +1441,48 @@ export const GOAL_CSS = `
 
 /* -------------------- «Сам, но не один»: admin section -------------------- */
 
+/* «Сам, но не один»: абонемент действует 4 недели с начала. Администратор продлевает
+   срок и замораживает; ученик просит заморозку или продление — запрос уходит администратору. */
+export const SELF_DAYS = 28;
+const addDays = (iso, n) => { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + n); return ymdOf(d); };
+const ymdOf = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+const dm = (iso) => iso.slice(8, 10) + "." + iso.slice(5, 7);
+export function selfTerm(st) {
+  const start = (st.selfStart || st.packageAssignedAt || today()).slice(0, 10);
+  const until = st.selfUntil || addDays(start, SELF_DAYS - 1);
+  const t = today();
+  const left = Math.round((new Date(until + "T12:00:00") - new Date(t + "T12:00:00")) / 864e5);
+  return { start, until, left, frozen: st.selfFrozenAt || "", over: !st.selfFrozenAt && left < 0 };
+}
+export const SELF_REQ = { freeze: "❄️ заморозку", extend: "➕ продление" };
+
+export function SelfTerm({ student, admin, actions }) {
+  const tm = selfTerm(student);
+  const req = student.selfRequest;
+  return (
+    <div className={"self-term" + (tm.over ? " warn" : "") + (tm.frozen ? " frozen" : "")}>
+      <div>
+        {tm.frozen ? <b>❄️ Абонемент заморожен с {dm(tm.frozen)}</b> : <b>Действует {dm(tm.start)} — {dm(tm.until)}</b>}
+        <span className="muted-text">{tm.frozen ? " · дни заморозки добавятся к сроку" : tm.over ? " · срок закончился" : " · осталось " + (tm.left + 1) + " " + (tm.left + 1 === 1 ? "день" : tm.left + 1 < 5 ? "дня" : "дней")}</span>
+        {req && <div className="self-req">Ученик просит {SELF_REQ[req.kind]}{req.note ? ": «" + req.note + "»" : ""}</div>}
+      </div>
+      {admin ? (
+        <div className="row-gap" style={{ flexWrap: "wrap" }}>
+          <button className="btn-small" onClick={() => actions.extendSelf(student.id, 7)}>+1 неделя</button>
+          <button className="btn-small" onClick={() => actions.extendSelf(student.id, 14)}>+2 недели</button>
+          {tm.frozen ? <button className="btn-small accent" onClick={() => actions.unfreezeSelf(student.id)}>Разморозить</button> : <button className="btn-small" onClick={() => actions.freezeSelf(student.id)}>❄️ Заморозить</button>}
+          {req && <button className="btn-small" onClick={() => actions.clearSelfRequest(student.id)}>Отклонить запрос</button>}
+        </div>
+      ) : req ? <span className="hint-text">Запрос на {SELF_REQ[req.kind]} отправлен администратору</span> : (
+        <div className="row-gap" style={{ flexWrap: "wrap" }}>
+          {!tm.frozen && <button className="btn-small" onClick={() => { const note = window.prompt("Заморозка: с какого числа и на сколько? (необязательно)") ?? null; if (note !== null) actions.requestSelf(student.id, "freeze", note); }}>❄️ Запросить заморозку</button>}
+          <button className="btn-small" onClick={() => { const note = window.prompt("Продление: на сколько и почему? (необязательно)") ?? null; if (note !== null) actions.requestSelf(student.id, "extend", note); }}>➕ Запросить продление</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function SelfOverviewPanel({ students, teachers, slots, subjectMeta, actions }) {
   const list = students.filter((s) => formatOf(s) === "self");
   const others = students.filter((s) => formatOf(s) !== "self" && !s.umbrellaId);
@@ -1454,7 +1497,7 @@ export function SelfOverviewPanel({ students, teachers, slots, subjectMeta, acti
       <div className="row-gap" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
         <div>
           <h3 className="lib-title">☂️ «Сам, но не один»</h3>
-          <div className="hint-text">Абонемент на месяц: одно занятие в неделю (4 в месяц), между ними задание под пробелы и письменный разбор. Каждую неделю преподаватель отмечает прогресс, в конце месяца — контрольный срез. На сайте: языки 7 500 ₽, история и обществознание 6 900 ₽ в месяц.</div>
+          <div className="hint-text">Абонемент на 4 недели: одно занятие в неделю (4 занятия), между ними задание под пробелы и письменный разбор. Каждую неделю преподаватель отмечает прогресс, в конце месяца — контрольный срез. На сайте: языки 7 500 ₽, история и обществознание 6 900 ₽ в месяц.</div>
         </div>
         <div className="row-gap">
           <select className="mini-select" value={pick} onChange={(e) => setPick(e.target.value)}>
@@ -1476,7 +1519,7 @@ export function SelfOverviewPanel({ students, teachers, slots, subjectMeta, acti
             <div className="row-gap" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
               <div><b style={{ fontSize: 16 }}>{s.name}</b> <span className="muted-text">· {subjectMeta[te?.subject]?.emoji} {subjectMeta[te?.subject]?.label} · {te?.name}</span></div>
               <div className="row-gap">
-                <button className="btn-small" title="Новый месяц: абонемент на 4 занятия" onClick={() => actions.renewSelf(s.id)}>Продлить на месяц</button>
+                <button className="btn-small" title="Новый абонемент на 4 недели, 4 занятия" onClick={() => actions.renewSelf(s.id)}>Новый абонемент (4 недели)</button>
                 <button className="btn-small" onClick={() => setOpen(open === s.id ? null : s.id)}>{open === s.id ? "Свернуть" : "Недели и срез"}</button>
               </div>
             </div>
@@ -1486,6 +1529,7 @@ export function SelfOverviewPanel({ students, teachers, slots, subjectMeta, acti
               <span>📊 Срез месяца: <b>{check ? check.achievedScore + " / " + check.maxScore : "ещё не было"}</b></span>
               <span>☂️ Абонемент: <b>{pk.total ? "осталось " + pk.left + " из " + pk.total : "не оформлен"}</b></span>
             </div>
+            <SelfTerm student={s} admin actions={actions} />
             {open === s.id && <SelfMonthPanel student={s} slots={slots} canEdit={true} actions={actions} />}
           </div>
         );
@@ -1956,6 +2000,12 @@ export function ProgressReport({ student, teacher, subjectLabel, slots, canEdit,
   );
 }
 
+const SELF_TERM_CSS = `
+.self-term { margin-top:10px; padding:10px 12px; border-radius:12px; background:#eef3f3; display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center; font-size:14px; }
+.self-term.warn { background:#F7DCD9; }
+.self-term.frozen { background:#E1E9F6; }
+.self-req { margin-top:4px; font-size:13px; color:#8E1F2A; }
+`;
 const REPORT_CSS = `
 .pr-head { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
 .pr-tabs { display:flex; gap:6px; flex-wrap:wrap; }
@@ -1970,4 +2020,4 @@ const REPORT_CSS = `
 @media (max-width:520px){ .pr-ks { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 `;
 
-export const EXTRA_CSS = EXTRA_CSS_BASE + FORMAT_CSS + LESSONS_CSS + CHARTS_CSS + PAY_CSS + SELF_CSS + GOAL_CSS + TP_CSS + CLUB_CSS + STATUS_CSS + REPORT_CSS;
+export const EXTRA_CSS = EXTRA_CSS_BASE + FORMAT_CSS + LESSONS_CSS + CHARTS_CSS + PAY_CSS + SELF_CSS + GOAL_CSS + TP_CSS + CLUB_CSS + STATUS_CSS + REPORT_CSS + SELF_TERM_CSS;

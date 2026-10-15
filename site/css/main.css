@@ -293,7 +293,8 @@ details p{padding:0 0 26px;color:var(--muted)}
 
 /* cta */
 .cta{background:var(--red-soft);color:var(--ink)}
-.cta .wrap{display:grid;grid-template-columns:minmax(0,800fr) minmax(0,800fr);gap:28px;align-items:center}
+.cta .wrap{display:grid;grid-template-columns:minmax(0,800fr) minmax(0,800fr);gap:28px;align-items:start}
+.cta-text{padding-top:40px}
 .cta-text{display:flex;flex-direction:column;gap:28px;align-items:flex-start}
 .cta .eyebrow{color:var(--red-text);font-size:34px;margin:0}
 .cta h2{font:700 clamp(40px,4.6vw,80px)/.98 var(--display)}

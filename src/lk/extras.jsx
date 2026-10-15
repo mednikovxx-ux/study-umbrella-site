@@ -587,6 +587,12 @@ export function FormatPanel({ student, students, teachers, groups, umbrellas, sl
 /* -------------------------- «Под одним зонтом» -------------------------- */
 
 export const UMBRELLA_PRICES = { 8: 10000, 12: 14400 }; // «от», как на сайте
+// Цена пакета по составу: есть хоть один язык — языковая цена, только гуманитарные — своя (как на сайте и в боте).
+export const UMBRELLA_PRICE_BY = { language: { 8: 10400, 12: 15000 }, humanities: { 8: 10000, 12: 14400 } };
+export function umbrellaPrice(um, students, teachers, n) {
+  const hasLang = (um?.memberIds || []).some((id) => teachers.find((t) => t.id === (students.find((x) => x.id === id) || {}).teacherId)?.department === "language");
+  return UMBRELLA_PRICE_BY[hasLang ? "language" : "humanities"][n];
+}
 
 export function UmbrellaPanel({ umbrellas, students, teachers, slots, subjectMeta, actions }) {
   const [form, setForm] = useState(null);

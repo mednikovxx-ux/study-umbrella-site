@@ -7,7 +7,7 @@ import {
 
 import { storage } from "./storage.js";
 import AdminAccess from "./admin-access.jsx";
-import { ProgressReport, StatusFlag, StatusDetails, statusPatch, FinishReasons, ClubsPanel, TeacherClubs, StudentClubs, CLUB_PRICE, LessonFiles, TargetPicker, targetText, SelfOverviewPanel, kindForStudent, GoalMarker, CHECK_KINDS, SelfMonthPanel, LESSON_KINDS, PayrollCard, slotKind, teacherPayroll, UmbrellaPanel, umbrellaOf, UMBRELLA_PRICES, AdminInbox, CallAdminButton, EmojiPicker, EXTRA_CSS, FormatBadge, FormatPanel, GroupsPanel, LibraryPanel, PayRequestModal, ProgramEditor, ProgressCharts, QUICK_REACTIONS, StudentLessons, StudentOverview, CHANGE_DEADLINE_H, PAY_DEADLINE_H, seedLibrary, withPackagePaid } from "./extras.jsx";
+import { umbrellaPrice, ProgressReport, StatusFlag, StatusDetails, statusPatch, FinishReasons, ClubsPanel, TeacherClubs, StudentClubs, CLUB_PRICE, LessonFiles, TargetPicker, targetText, SelfOverviewPanel, kindForStudent, GoalMarker, CHECK_KINDS, SelfMonthPanel, LESSON_KINDS, PayrollCard, slotKind, teacherPayroll, UmbrellaPanel, umbrellaOf, UMBRELLA_PRICES, AdminInbox, CallAdminButton, EmojiPicker, EXTRA_CSS, FormatBadge, FormatPanel, GroupsPanel, LibraryPanel, PayRequestModal, ProgramEditor, ProgressCharts, QUICK_REACTIONS, StudentLessons, StudentOverview, CHANGE_DEADLINE_H, PAY_DEADLINE_H, seedLibrary, withPackagePaid } from "./extras.jsx";
 const LOGO_DATA_URI = "/img/logo.png";
 
 /* ----------------------------- helpers ----------------------------- */
@@ -2582,7 +2582,7 @@ function StudentView({ student, teacher, schedule, actions, products, ext, onSwi
       </div>
 
       {payOpen && (
-        <PayRequestModal student={student} products={umbrellaOf(ext.umbrellas, student) ? [8, 12].map((n) => ({ id: "um" + n, subject: teacher.subject, lessonsIncluded: n, price: UMBRELLA_PRICES[n] }))
+        <PayRequestModal student={student} products={umbrellaOf(ext.umbrellas, student) ? [8, 12].map((n) => ({ id: "um" + n, subject: teacher.subject, lessonsIncluded: n, price: umbrellaPrice(umbrellaOf(ext.umbrellas, student), ext.students, ext.teachers, n) }))
           : formatProducts(student.format, teacher.subject) || products} subject={teacher.subject} onClose={() => setPayOpen(false)} onSubmit={(d) => { actions.requestPayment(student.id, teacher.id, d); setPayOpen(false); }} />
       )}
 
@@ -4136,9 +4136,23 @@ export default function App({ session, onLogout }) {
     const t = teachers.find((tt) => tt.id === s.teacherId);
     return t && t.department === department;
   });
+  // Ученик видит только себя: школы не переключаются, а «Под одним зонтом» — один
+  // человек с карточкой на каждый предмет, в списке он один (предметы — внутри кабинета).
+  const studentChoices = (() => {
+    const seen = new Set();
+    return students.filter((s) => teachers.some((t) => t.id === s.teacherId)).flatMap((s) => {
+      const um = umbrellaOf(umbrellas, s);
+      if (!um) return [{ id: s.id, label: s.name }];
+      if (seen.has(um.id)) return [];
+      seen.add(um.id);
+      const subj = um.memberIds.map((id) => SUBJECTS[teachers.find((t) => t.id === students.find((x) => x.id === id)?.teacherId)?.subject]?.label).filter(Boolean).join(" + ");
+      return [{ id: s.id, label: s.name + " · 🌂 " + subj }];
+    });
+  })();
+  const shownDepartment = role === "student" && currentStudentTeacher ? currentStudentTeacher.department : department;
 
   return (
-    <div className={"app-root theme-" + department}>
+    <div className={"app-root theme-" + shownDepartment}>
       <style>{CSS + EXTRA_CSS}</style>
 
       <header className="top-bar">
@@ -4162,7 +4176,7 @@ export default function App({ session, onLogout }) {
         )}
         {session.demo && role === "student" && (
           <select className="mini-select" value={asStudentId || ""} onChange={(e) => setAsStudentId(e.target.value)}>
-            {deptStudentsForSelect.map((s) => <option key={s.id} value={s.id}>Я — {s.name}</option>)}
+            {(umbrellaOf(umbrellas, currentStudent || {}) && !studentChoices.some((c) => c.id === asStudentId) ? [{ id: asStudentId, label: currentStudent.name + " · 🌂" }, ...studentChoices] : studentChoices).map((c) => <option key={c.id} value={c.id}>Я — {c.label}</option>)}
           </select>
         )}
         {role === "student" && currentStudent && <CallAdminButton role="student" calls={calls} fromId={currentStudent.id} onCall={(d) => actions.callAdmin("student", currentStudent.id, d)} />}
@@ -4171,7 +4185,7 @@ export default function App({ session, onLogout }) {
         <button className="logout-btn" onClick={onLogout} title="Выйти">Выйти</button>
       </header>
 
-      {((role === "admin" && session.isAdmin) || session.demo) && (
+      {((role === "admin" && session.isAdmin) || session.demo) && role !== "student" && (
         <div className="dept-bar">
           <button className={"dept-btn dept-language" + (department === "language" ? " active" : "")} onClick={() => setDepartment("language")}>Языковая школа</button>
           <button className={"dept-btn dept-humanities" + (department === "humanities" ? " active" : "")} onClick={() => setDepartment("humanities")}>Гуманитарная школа · ОГЭ и ЕГЭ</button>

@@ -818,3 +818,5 @@ dialog.rules::backdrop{background:rgba(30,43,47,.45)}
 .post-cover.club-cover .cover-hand{font-size:clamp(30px,2.6vw,42px);white-space:nowrap}
 .post-cover.club-cover .cover-sub{font-size:19px}
 .bub{font-size:17px;padding:6px 12px}
+.about-visual .hero-pic{object-position:50% 50%}
+@media (max-width:900px){.about-visual{aspect-ratio:1/1}}

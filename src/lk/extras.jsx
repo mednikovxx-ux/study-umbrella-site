@@ -1704,4 +1704,106 @@ export const CLUB_CSS = `
 .club-person { font-size:12px; background:#fbf1d3; border-radius:999px; padding:2px 10px; }
 .club-person.paid { background:#e3efee; }
 `;
-export const EXTRA_CSS = EXTRA_CSS_BASE + FORMAT_CSS + LESSONS_CSS + CHARTS_CSS + PAY_CSS + SELF_CSS + GOAL_CSS + TP_CSS + CLUB_CSS;
+/* ---------- Пауза, завершение обучения, «давно не было занятий» ----------
+   Идея из трекера преподавателя английского: у паузы есть вид и дата возвращения,
+   у завершения — причина (владелец видит, почему уходят), а в списке учеников
+   заметно, с кем давно не было урока. */
+export const PAUSE_KINDS = { vacation: "🏖 Отпуск", pause: "⏸ Приостановка занятий" };
+export const FINISH_REASONS = {
+  goal: "Цель достигнута", money: "Финансовые причины", schedule: "Не совпало расписание",
+  teacher: "Перешёл к другому преподавателю", motivation: "Пропала мотивация", moved: "Переезд", other: "Другое",
+};
+export const QUIET_DAYS = 14;
+const todayIso = () => new Date().toISOString().slice(0, 10);
+const ruDate = (iso) => (iso ? iso.slice(8, 10) + "." + iso.slice(5, 7) + "." + iso.slice(0, 4) : "");
+
+// Дней с последнего прошедшего урока (null — уроков ещё не было).
+export function daysSinceLesson(student, slots) {
+  const t = todayIso();
+  const last = (slots || []).filter((sl) => sl.studentId === student.id && sl.status === "booked" && sl.date <= t).map((sl) => sl.date).sort().pop();
+  return last ? Math.round((new Date(t) - new Date(last)) / 864e5) : null;
+}
+
+// Поля, которые ставятся вместе со сменой статуса.
+export function statusPatch(status) {
+  const t = todayIso();
+  if (status === "paused") return { status, pausedAt: t, pauseKind: "vacation", pauseUntil: "", pauseNote: "" };
+  if (status === "finished") return { status, finishedAt: t, finishReason: "", finishNote: "" };
+  return { status };
+}
+
+// Плашка в списке учеников.
+export function StatusFlag({ student, slots }) {
+  const t = todayIso();
+  if (student.status === "paused") {
+    const late = student.pauseUntil && student.pauseUntil < t;
+    return <span className={"st-flag" + (late ? " warn" : "")} title={student.pauseNote || ""}>{PAUSE_KINDS[student.pauseKind] || PAUSE_KINDS.pause}{student.pauseUntil ? " · до " + ruDate(student.pauseUntil).slice(0, 5) : ""}{late ? " · срок прошёл" : ""}</span>;
+  }
+  if (student.status === "finished") return <span className="st-flag" title={student.finishNote || ""}>📦 {FINISH_REASONS[student.finishReason] || "причина не указана"}</span>;
+  if (student.status !== "active") return null;
+  const d = daysSinceLesson(student, slots);
+  return d !== null && d >= QUIET_DAYS ? <span className="st-flag warn" title="Последний урок был давно">давно не было · {d} дн.</span> : null;
+}
+
+// Подробности паузы или завершения под статусом в карточке ученика.
+export function StatusDetails({ student, canEdit, onChange }) {
+  if (student.status === "paused") {
+    const late = student.pauseUntil && student.pauseUntil < todayIso();
+    return (
+      <div className={"st-box" + (late ? " warn" : "")}>
+        <div className="st-box-title">{PAUSE_KINDS[student.pauseKind] || PAUSE_KINDS.pause}{student.pausedAt ? " с " + ruDate(student.pausedAt) : ""}{late ? " · срок возвращения прошёл, напишите ученику" : ""}</div>
+        <div className="st-box-row">
+          <select className="mini-select" disabled={!canEdit} value={student.pauseKind || "pause"} onChange={(e) => onChange({ pauseKind: e.target.value })}>
+            {Object.entries(PAUSE_KINDS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+          <label className="hint-text">Вернётся: <input type="date" className="mini-select" disabled={!canEdit} value={student.pauseUntil || ""} onChange={(e) => onChange({ pauseUntil: e.target.value })} /></label>
+        </div>
+        <textarea className="mini-textarea" readOnly={!canEdit} placeholder="Комментарий: например, уехал к родителям, напишет сам" value={student.pauseNote || ""} onChange={(e) => onChange({ pauseNote: e.target.value })} />
+      </div>
+    );
+  }
+  if (student.status === "finished") {
+    return (
+      <div className="st-box">
+        <div className="st-box-title">📦 Завершил обучение{student.finishedAt ? " " + ruDate(student.finishedAt) : ""}</div>
+        <div className="st-box-row">
+          <select className="mini-select" disabled={!canEdit} value={student.finishReason || ""} onChange={(e) => onChange({ finishReason: e.target.value })}>
+            <option value="">Причина: выберите</option>
+            {Object.entries(FINISH_REASONS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+        </div>
+        <textarea className="mini-textarea" readOnly={!canEdit} placeholder="Комментарий: что сработало, что нет, вернётся ли" value={student.finishNote || ""} onChange={(e) => onChange({ finishNote: e.target.value })} />
+      </div>
+    );
+  }
+  return null;
+}
+
+// Для владельца: почему ученики завершают обучение.
+export function FinishReasons({ students }) {
+  const done = (students || []).filter((s) => s.status === "finished");
+  if (!done.length) return null;
+  const counts = {};
+  done.forEach((s) => { const k = s.finishReason || "none"; counts[k] = (counts[k] || 0) + 1; });
+  return (
+    <div className="st-reasons">
+      <div className="st-box-title">Почему завершают обучение · {done.length}</div>
+      {Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([k, n]) => (
+        <div key={k} className="st-reason"><span>{FINISH_REASONS[k] || "Причина не указана"}</span><b>{n}</b></div>
+      ))}
+    </div>
+  );
+}
+
+const STATUS_CSS = `
+.st-flag { font-size:11.5px; border-radius:999px; padding:2px 8px; background:#eef3f3; color:#2F6F73; white-space:nowrap; }
+.st-flag.warn { background:#F7DCD9; color:#8E1F2A; }
+.st-box { margin-top:10px; padding:12px 14px; border-radius:14px; background:#f5f0e8; display:flex; flex-direction:column; gap:8px; }
+.st-box.warn { background:#F7DCD9; }
+.st-box-title { font-weight:600; font-size:14px; }
+.st-box-row { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+.st-reasons { margin:12px 0; padding:14px 16px; border-radius:16px; background:#fff; border:1px solid #E2D9CB; display:flex; flex-direction:column; gap:6px; max-width:520px; }
+.st-reason { display:flex; justify-content:space-between; font-size:14px; }
+`;
+
+export const EXTRA_CSS = EXTRA_CSS_BASE + FORMAT_CSS + LESSONS_CSS + CHARTS_CSS + PAY_CSS + SELF_CSS + GOAL_CSS + TP_CSS + CLUB_CSS + STATUS_CSS;

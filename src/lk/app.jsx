@@ -7,7 +7,7 @@ import {
 
 import { storage } from "./storage.js";
 import AdminAccess from "./admin-access.jsx";
-import { ClubsPanel, TeacherClubs, StudentClubs, CLUB_PRICE, LessonFiles, TargetPicker, targetText, SelfOverviewPanel, kindForStudent, GoalMarker, CHECK_KINDS, SelfMonthPanel, LESSON_KINDS, PayrollCard, slotKind, teacherPayroll, UmbrellaPanel, umbrellaOf, UMBRELLA_PRICES, AdminInbox, CallAdminButton, EmojiPicker, EXTRA_CSS, FormatBadge, FormatPanel, GroupsPanel, LibraryPanel, PayRequestModal, ProgramEditor, ProgressCharts, QUICK_REACTIONS, StudentLessons, StudentOverview, CHANGE_DEADLINE_H, PAY_DEADLINE_H, seedLibrary, withPackagePaid } from "./extras.jsx";
+import { StatusFlag, StatusDetails, statusPatch, FinishReasons, ClubsPanel, TeacherClubs, StudentClubs, CLUB_PRICE, LessonFiles, TargetPicker, targetText, SelfOverviewPanel, kindForStudent, GoalMarker, CHECK_KINDS, SelfMonthPanel, LESSON_KINDS, PayrollCard, slotKind, teacherPayroll, UmbrellaPanel, umbrellaOf, UMBRELLA_PRICES, AdminInbox, CallAdminButton, EmojiPicker, EXTRA_CSS, FormatBadge, FormatPanel, GroupsPanel, LibraryPanel, PayRequestModal, ProgramEditor, ProgressCharts, QUICK_REACTIONS, StudentLessons, StudentOverview, CHANGE_DEADLINE_H, PAY_DEADLINE_H, seedLibrary, withPackagePaid } from "./extras.jsx";
 const LOGO_DATA_URI = "/img/logo.png";
 
 /* ----------------------------- helpers ----------------------------- */
@@ -2308,6 +2308,7 @@ function TeacherView({ teacher, teachers, students, schedule, actions, perm, pro
                       <FormatBadge student={s} />
                       <Pill tone={s.status === "active" ? "accent" : s.status === "trial" ? "gold" : "default"}>{STATUS_LABELS[s.status]}</Pill>
                       {s.examTarget?.exam && <Pill tone="gold">🎯 {s.examTarget.exam}</Pill>}
+                      <StatusFlag student={s} slots={mySlots} />
                       <span className="muted-text">{s.currentLevel}</span>
                     </div>
                   </div>
@@ -2336,13 +2337,15 @@ function TeacherView({ teacher, teachers, students, schedule, actions, perm, pro
                       <div className="muted-text">{selected.contact || "контакт не указан"}</div>
                     </div>
                     {perm.profile ? (
-                      <select className="mini-select" value={selected.status} onChange={(e) => actions.updateStudent(selected.id, { status: e.target.value })}>
+                      <select className="mini-select" value={selected.status} onChange={(e) => actions.updateStudent(selected.id, statusPatch(e.target.value))}>
                         {Object.keys(STATUS_LABELS).map((k) => <option key={k} value={k}>{STATUS_LABELS[k]}</option>)}
                       </select>
                     ) : (
                       <Pill tone={selected.status === "active" ? "accent" : "default"}>{STATUS_LABELS[selected.status]}</Pill>
                     )}
                   </div>
+
+                  <StatusDetails student={selected} canEdit={!!(perm.profile || perm.package)} onChange={(patch) => actions.updateStudent(selected.id, patch)} />
 
                   <FormatPanel student={selected} students={students} teachers={teachers} groups={ext.groups} umbrellas={ext.umbrellas} slots={schedule} subjectMeta={SUBJECTS} canEdit={perm.profile || perm.package} canManage={!!ext.onOpenAdminTab} onOpenAdminTab={ext.onOpenAdminTab} actions={actions} />
                   {selected.format === "self" && <SelfMonthPanel student={selected} slots={mySlots} canEdit={perm.profile || perm.schedule} actions={actions} />}
@@ -2824,6 +2827,8 @@ function AdminView({ department, teachers, students, schedule, sales, products, 
         <div className="school-stat"><div className="school-stat-value">{totalActiveLang}</div><div className="school-stat-label">Языковое подразделение</div></div>
         <div className="school-stat"><div className="school-stat-value">{totalActiveHum}</div><div className="school-stat-label">Гуманитарное подразделение</div></div>
       </div>
+
+      <FinishReasons students={students} />
 
       <AdminInbox calls={ext.calls} payRequests={ext.payRequests} students={students} teachers={teachers} onResolveCall={actions.resolveCall} onPayAction={actions.payRequestAction} />
 

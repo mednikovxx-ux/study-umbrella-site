@@ -782,3 +782,11 @@ dialog.rules::backdrop{background:rgba(30,43,47,.45)}
 @media (max-width:900px){.team-visual{min-height:0;aspect-ratio:4/5;border-radius:28px}}
 /* фото основателя на белом фоне: низ и края мягко уходят в белый */
 .team-all{display:block;width:100%;height:auto;-webkit-mask-image:linear-gradient(to bottom,#000 86%,transparent 100%),linear-gradient(to right,transparent 0,#000 6%,#000 94%,transparent 100%);-webkit-mask-composite:source-in;mask-image:linear-gradient(to bottom,#000 86%,transparent 100%),linear-gradient(to right,transparent 0,#000 6%,#000 94%,transparent 100%);mask-composite:intersect}
+/* обложка статьи про Испанию: цвета испанского флага */
+.post-cover.spain{background:linear-gradient(#AA151B 0 24%,#F1BF00 24% 76%,#AA151B 76%);color:#AA151B}
+.post-cover.spain .cover-sub{color:#5C1A0E}
+/* разговорник в статье: фраза на языке и перевод */
+.phrases{list-style:none;padding:0;margin:0 0 8px;display:flex;flex-direction:column;gap:10px}
+.phrases li{background:var(--white);border-radius:16px;padding:14px 18px;display:flex;flex-direction:column;gap:4px}
+.phrases b{font:600 18px/1.4 var(--body);color:var(--ink)}
+.phrases span{font-size:16px;color:var(--muted)}

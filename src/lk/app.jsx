@@ -436,7 +436,7 @@ const seedStudents = [
     startLevel: "A2", currentLevel: "B1", goal: "Заговорить на английском для работы", status: "active", planType: "package", startNote: "Понимает, но боится говорить.",
     grammarTopics: [{ id: uid("g"), name: "Present Perfect", status: "in_progress" }], vocabTopics: [{ id: uid("v"), name: "Work & Career", status: "in_progress" }],
     materials: [], homework: [], messages: [],
-    packageProductId: null, packageTotal: 4, packageAssignedAt: isoDate(-20), packageLabel: "«Сам, но не один»: абонемент на 4 недели, 4 занятия", checkpoints: [], examTarget: null, examTopics: [], examGrammar: [], examVocab: [], examMaterials: [], canRequestTeacherChange: false, teacherChangeRequest: null,
+    packageProductId: null, packageTotal: 4, packageAssignedAt: isoDate(-20), packageLabel: "«Сам, но не один»: абонемент на месяц, 4 занятия", checkpoints: [], examTarget: null, examTopics: [], examGrammar: [], examVocab: [], examMaterials: [], canRequestTeacherChange: false, teacherChangeRequest: null,
     format: "self",
     pageTheme: { bannerColor: "", bannerEmoji: "", accentColor: "", stickers: [] },
   },
@@ -1827,7 +1827,7 @@ function PackageTracker({ student, actions, canEdit, products, slots, subject })
           <div className="package-quick-picks">
             <button className={"btn-small" + (isIndividual ? " accent" : "")} onClick={pickIndividual}>Индивидуальный план</button>
             {PRESETS.map((n) => <button key={n} className={"btn-small" + (isPreset(n) ? " accent" : "")} onClick={() => pickStandard(n)}>Пакет на {n} занятий</button>)}
-            {student.format === "self" && <button className="btn-small" onClick={() => { actions.setPackagePlan(student.id, { packageProductId: null, packageTotal: 4, packageLabel: "«Сам, но не один»: абонемент на 4 недели, 4 занятия" }); setExpanded(false); }}>☂️ Абонемент на месяц (4 занятия)</button>}
+            {student.format === "self" && <button className="btn-small" onClick={() => { actions.setPackagePlan(student.id, { packageProductId: null, packageTotal: 4, packageLabel: "«Сам, но не один»: абонемент на месяц, 4 занятия" }); setExpanded(false); }}>☂️ Абонемент на месяц (4 занятия)</button>}
             <button className={"btn-small" + (customOpen || isCustomActive ? " accent" : "")} onClick={() => setCustomOpen((v) => !v)}>Свой вариант</button>
           </div>
           {customOpen && (
@@ -3790,10 +3790,10 @@ export default function App({ session, onLogout }) {
     // «Сам, но не один»: the format plus a month subscription of 4 lessons.
     startSelf: (studentId) => {
       const now = Date.now();
-      saveStudents(students.map((s) => (s.id === studentId ? { ...s, format: "self", planType: "package", packageProductId: null, packageTotal: 4, packageAssignedAt: isoDate(0), packageLabel: "«Сам, но не один»: абонемент на 4 недели, 4 занятия", selfStart: isoDate(0), selfUntil: isoDate(SELF_DAYS - 1), selfFrozenAt: "", selfRequest: null } : s)));
+      saveStudents(students.map((s) => (s.id === studentId ? { ...s, format: "self", planType: "package", packageProductId: null, packageTotal: 4, packageAssignedAt: isoDate(0), packageLabel: "«Сам, но не один»: абонемент на месяц, 4 занятия", selfStart: isoDate(0), selfUntil: isoDate(SELF_DAYS - 1), selfFrozenAt: "", selfRequest: null } : s)));
       saveSchedule(schedule.map((sl) => (sl.studentId === studentId && !sl.groupId && sl.type !== "trial" && new Date(sl.date + "T" + sl.time + ":00").getTime() > now ? { ...sl, format: "self" } : sl)));
     },
-    renewSelf: (studentId) => saveStudents(students.map((s) => (s.id === studentId ? { ...s, packageTotal: 4, packageAssignedAt: isoDate(0), packageLabel: "«Сам, но не один»: абонемент на 4 недели, 4 занятия", selfStart: isoDate(0), selfUntil: isoDate(SELF_DAYS - 1), selfFrozenAt: "", selfRequest: null } : s))),
+    renewSelf: (studentId) => saveStudents(students.map((s) => (s.id === studentId ? { ...s, packageTotal: 4, packageAssignedAt: isoDate(0), packageLabel: "«Сам, но не один»: абонемент на месяц, 4 занятия", selfStart: isoDate(0), selfUntil: isoDate(SELF_DAYS - 1), selfFrozenAt: "", selfRequest: null } : s))),
     // Срок абонемента: продление, заморозка (дни паузы добавляются к сроку), запросы ученика.
     extendSelf: (studentId, days) => saveStudents(students.map((s) => (s.id === studentId ? { ...s, selfStart: selfTerm(s).start, selfUntil: isoAdd(selfTerm(s).until, days), selfRequest: null } : s))),
     freezeSelf: (studentId) => saveStudents(students.map((s) => (s.id === studentId ? { ...s, selfStart: selfTerm(s).start, selfUntil: selfTerm(s).until, selfFrozenAt: isoDate(0), selfRequest: null } : s))),

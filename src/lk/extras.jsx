@@ -84,7 +84,7 @@ export function StudentOverview({ student, teacher, subjMeta, slots, payRequests
       </div>
       <div className="ov-grid">
         <div className="ov-card">
-          <div className="ov-label">{fmt === "self" ? "☂️ Абонемент на 4 недели" : fmt === "umbrella" ? "🌂 Комплексный пакет" : "📦 Пакет"}</div>
+          <div className="ov-label">{fmt === "self" ? "☂️ Абонемент на месяц" : fmt === "umbrella" ? "🌂 Комплексный пакет" : "📦 Пакет"}</div>
           {pk.total ? <>
             <div className="ov-big">{pk.left} <span>из {pk.total} осталось</span></div>
             <div className="progress-track"><div className="progress-fill" style={{ width: Math.round(pk.used / pk.total * 100) + "%" }} /></div>
@@ -495,7 +495,7 @@ export const EXTRA_CSS_BASE = `
 
 export const FORMATS = {
   individual: { icon: "👤", label: "Индивидуально", hint: "Один на один с преподавателем, программа под цель. Пакеты 4/6/8/12 или разовые занятия." },
-  self: { icon: "☂️", label: "«Сам, но не один»", hint: "Абонемент на 4 недели: одно занятие в неделю (4 занятия), между ними задание под пробелы и письменный разбор." },
+  self: { icon: "☂️", label: "«Сам, но не один»", hint: "Абонемент на месяц (4 недели): одно занятие в неделю, между ними задание под пробелы и письменный разбор." },
   umbrella: { icon: "🌂", label: "«Под одним зонтом»", hint: "Комплексный пакет: несколько предметов в любой комбинации в одном пакете, у каждого предмета свой преподаватель, остаток общий." },
   pair: { icon: "👥", label: "В паре", hint: "Только языки. Занятия вдвоём со своим партнёром по общему расписанию. Цена за одного." },
   group: { icon: "👨‍👩‍👧", label: "Групповой курс", hint: "3–4 человека, курс 4 недели: 8 или 12 занятий, оплачивается целиком. Стартует, когда оплатили минимум трое." },
@@ -1497,7 +1497,7 @@ export function SelfOverviewPanel({ students, teachers, slots, subjectMeta, acti
       <div className="row-gap" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
         <div>
           <h3 className="lib-title">☂️ «Сам, но не один»</h3>
-          <div className="hint-text">Абонемент на 4 недели: одно занятие в неделю (4 занятия), между ними задание под пробелы и письменный разбор. Каждую неделю преподаватель отмечает прогресс, в конце месяца — контрольный срез. На сайте: языки 7 500 ₽, история и обществознание 6 900 ₽ в месяц.</div>
+          <div className="hint-text">Абонемент на месяц (4 недели): одно занятие в неделю, между ними задание под пробелы и письменный разбор. Каждую неделю преподаватель отмечает прогресс, в конце месяца — контрольный срез. На сайте: языки 7 500 ₽, история и обществознание 6 900 ₽ в месяц.</div>
         </div>
         <div className="row-gap">
           <select className="mini-select" value={pick} onChange={(e) => setPick(e.target.value)}>
@@ -1519,7 +1519,7 @@ export function SelfOverviewPanel({ students, teachers, slots, subjectMeta, acti
             <div className="row-gap" style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
               <div><b style={{ fontSize: 16 }}>{s.name}</b> <span className="muted-text">· {subjectMeta[te?.subject]?.emoji} {subjectMeta[te?.subject]?.label} · {te?.name}</span></div>
               <div className="row-gap">
-                <button className="btn-small" title="Новый абонемент на 4 недели, 4 занятия" onClick={() => actions.renewSelf(s.id)}>Новый абонемент (4 недели)</button>
+                <button className="btn-small" title="Новый абонемент на месяц: 4 недели, 4 занятия" onClick={() => actions.renewSelf(s.id)}>Новый абонемент на месяц</button>
                 <button className="btn-small" onClick={() => setOpen(open === s.id ? null : s.id)}>{open === s.id ? "Свернуть" : "Недели и срез"}</button>
               </div>
             </div>

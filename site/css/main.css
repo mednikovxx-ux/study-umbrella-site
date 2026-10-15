@@ -771,3 +771,4 @@ dialog.rules::backdrop{background:rgba(30,43,47,.45)}
 
 .field-hint{font:400 13px/1.35 var(--body);color:var(--muted)}
 .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.team-visual{align-self:center;max-width:620px;justify-self:center;width:100%}

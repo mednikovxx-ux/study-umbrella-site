@@ -261,7 +261,7 @@ export function TrainerStudent({ student, subject, subjectLabel, exams, tasks, a
             <option value="">Все задания · {bank.filter((t) => t.exam === exam).length}</option>
             {parts.map((p) => <option key={p} value={p}>{p} · {bank.filter((t) => t.exam === exam && t.part === p).length}</option>)}
           </select>
-          <button className="btn-small accent" disabled={!pool.length} onClick={start}>▶ Решать: {Math.min(5, pool.length)} заданий</button>
+          <button className="btn-small accent" disabled={!pool.length} onClick={start}>▶ Решать задания: {Math.min(5, pool.length)}</button>
         </div>
       </>}
       <div className="field-label">📊 Где я теряю баллы</div>

@@ -7,6 +7,7 @@ import {
 
 import { storage } from "./storage.js";
 import AdminAccess from "./admin-access.jsx";
+import { TrainerStudent, TrainerTeacher, TRAINER_CSS, seedTrainer } from "./trainer.jsx";
 import { SELF_DAYS, selfTerm, umbrellaPrice, ProgressReport, StatusFlag, StatusDetails, statusPatch, FinishReasons, ClubsPanel, TeacherClubs, StudentClubs, CLUB_PRICE, LessonFiles, TargetPicker, targetText, SelfOverviewPanel, kindForStudent, GoalMarker, CHECK_KINDS, SelfMonthPanel, LESSON_KINDS, PayrollCard, slotKind, teacherPayroll, UmbrellaPanel, umbrellaOf, UMBRELLA_PRICES, AdminInbox, CallAdminButton, EmojiPicker, EXTRA_CSS, FormatBadge, FormatPanel, GroupsPanel, LibraryPanel, PayRequestModal, ProgramEditor, ProgressCharts, QUICK_REACTIONS, StudentLessons, StudentOverview, CHANGE_DEADLINE_H, PAY_DEADLINE_H, seedLibrary, withPackagePaid } from "./extras.jsx";
 const LOGO_DATA_URI = "/img/logo.png";
 
@@ -2250,6 +2251,7 @@ function TeacherView({ teacher, teachers, students, schedule, actions, perm, pro
       <div className="tabs">
         <button className={tab === "students" ? "tab active" : "tab"} onClick={() => setTab("students")}><Users size={13} /> Ученики</button>
         <button className={tab === "materials" ? "tab active" : "tab"} onClick={() => setTab("materials")}><BookOpen size={13} /> Материалы</button>
+        <button className={tab === "trainer" ? "tab active" : "tab"} onClick={() => setTab("trainer")}>🎯 Тренажёр</button>
         <button className={tab === "schedule" ? "tab active" : "tab"} onClick={() => setTab("schedule")}><Calendar size={13} /> Расписание</button>
         <button className={tab === "staff" ? "tab active" : "tab"} onClick={() => setTab("staff")}><Building2 size={13} /> Администрация</button>
       </div>
@@ -2480,6 +2482,11 @@ function TeacherView({ teacher, teachers, students, schedule, actions, perm, pro
         </div>
       )}
 
+      {tab === "trainer" && (
+        <div className="card">
+          <TrainerTeacher teacher={teacher} subjectLabel={subjMeta.label} exams={EXAM_OPTIONS[teacher.subject] || []} partsOf={(exam) => examBank("tasks", exam, teacher.subject)} tasks={ext.trainerTasks || []} attempts={ext.trainerAttempts || []} students={myStudents} actions={actions} />
+        </div>
+      )}
       {tab === "materials" && (
         <div className="card">
           <LibraryPanel items={ext.library} subjects={[teacher.subject]} subjectMeta={SUBJECTS} canEdit={() => true} author={teacher.name} onAdd={actions.addLibraryItem} onUpdate={actions.updateLibraryItem} onRemove={actions.removeLibraryItem} title={"Общая библиотека: " + SUBJECTS[teacher.subject].label} hint="Видна всем ученикам предмета. Добавляют и правят преподаватели предмета и администратор, ученики только смотрят." />
@@ -2578,6 +2585,7 @@ function StudentView({ student, teacher, schedule, actions, products, ext, onSwi
         {T("lessons", <Calendar size={13} />, "Занятия")}
         {T("homework", <BookOpen size={13} />, "Домашние задания")}
         {T("library", <BookOpen size={13} />, "Материалы")}
+        {T("trainer", "🎯", "Тренажёр")}
         {T("chat", <MessageCircle size={13} />, "Переписка")}
         {T("support", <LifeBuoy size={13} />, "Поддержка")}
       </div>
@@ -2668,6 +2676,11 @@ function StudentView({ student, teacher, schedule, actions, products, ext, onSwi
         </div>
       )}
 
+      {tab === "trainer" && (
+        <div className="card">
+          <TrainerStudent student={student} subject={teacher.subject} subjectLabel={subjMeta.label} exams={EXAM_OPTIONS[teacher.subject] || []} tasks={ext.trainerTasks || []} attempts={ext.trainerAttempts || []} actions={actions} />
+        </div>
+      )}
       {tab === "library" && (
         <div className="card">
           <LibraryPanel items={ext.library} subjects={[teacher.subject]} subjectMeta={SUBJECTS} canEdit={() => false} title={"Материалы: " + subjMeta.label} />
@@ -3527,6 +3540,8 @@ export default function App({ session, onLogout }) {
   const [groups, setGroups] = useState([]);
   const [umbrellas, setUmbrellas] = useState([]);
   const [clubs, setClubs] = useState([]);
+  const [trainerTasks, setTrainerTasks] = useState([]);
+  const [trainerAttempts, setTrainerAttempts] = useState([]);
 
   const persist = useCallback(async (key, value) => {
     try {
@@ -3554,6 +3569,10 @@ export default function App({ session, onLogout }) {
       setGroups(grpRes.value || []);
       const clubRes = await loadStrict("su-clubs-v1");
       setClubs(clubRes.value || []);
+      const trRes = await loadStrict("su-trainer-v1");
+      setTrainerTasks(trRes.value || seedTrainer);
+      const traRes = await loadStrict("su-trainer-att-v1");
+      setTrainerAttempts(traRes.value || []);
       const umRes = await loadStrict("su-umbrella-v1");
       setUmbrellas(umRes.value || seedUmbrellas);
       setLibrary(libRes.value || seedLibrary);
@@ -3620,6 +3639,8 @@ export default function App({ session, onLogout }) {
   const saveGroups = (next) => { setGroups(next); persist("su-groups-v1", next); };
   const saveUmbrellas = (next) => { setUmbrellas(next); persist("su-umbrella-v1", next); };
   const saveClubs = (next) => { setClubs(next); persist("su-clubs-v1", next); };
+  const saveTrainer = (next) => { setTrainerTasks(next); persist("su-trainer-v1", next); };
+  const saveTrainerAtt = (next) => { setTrainerAttempts(next); persist("su-trainer-att-v1", next); };
 
   const [reminderTick, setReminderTick] = useState(0);
   useEffect(() => {
@@ -3656,6 +3677,11 @@ export default function App({ session, onLogout }) {
 
   const actions = {
     addLibraryItem: (item) => saveLibrary([item, ...library]),
+    addTrainerTask: (task) => saveTrainer([task, ...trainerTasks]),
+    updateTrainerTask: (id, patch) => saveTrainer(trainerTasks.map((t) => (t.id === id ? { ...t, ...patch } : t))),
+    removeTrainerTask: (id) => saveTrainer(trainerTasks.filter((t) => t.id !== id)),
+    addTrainerAttempt: (a) => saveTrainerAtt([...trainerAttempts, a]),
+    reviewTrainerAttempt: (id, score, comment) => saveTrainerAtt(trainerAttempts.map((a) => (a.id === id ? { ...a, score, comment: comment || "", status: "reviewed", reviewedAt: new Date().toISOString() } : a))),
     updateLibraryItem: (id, patch) => saveLibrary(library.map((m) => (m.id === id ? { ...m, ...patch } : m))),
     removeLibraryItem: (id) => saveLibrary(library.filter((m) => m.id !== id)),
     // A call also lands in the chat with the administration, so the answer is there.
@@ -4050,7 +4076,7 @@ export default function App({ session, onLogout }) {
     },
     addExpense: (date, category, amount, note) => saveExpenses([...expenses, { id: uid("exp"), date, category, amount: Number(amount) || 0, note: note || "" }]),
     removeExpense: (id) => saveExpenses(expenses.filter((x) => x.id !== id)),
-    resetDemo: () => { saveTeachers(seedTeachers); saveStudents(seedStudents); saveSchedule(seedSchedule); saveSales(seedSales); saveProducts(seedProducts); saveDiscount(seedDiscountPercent); saveExpenses([]); saveLibrary(seedLibrary); saveCalls([]); savePayRequests([]); saveGroups([]); saveUmbrellas(seedUmbrellas); saveClubs([]); setResetArmed(false); },
+    resetDemo: () => { saveTeachers(seedTeachers); saveStudents(seedStudents); saveSchedule(seedSchedule); saveSales(seedSales); saveProducts(seedProducts); saveDiscount(seedDiscountPercent); saveExpenses([]); saveLibrary(seedLibrary); saveCalls([]); savePayRequests([]); saveGroups([]); saveUmbrellas(seedUmbrellas); saveClubs([]); saveTrainer(seedTrainer); saveTrainerAtt([]); setResetArmed(false); },
   };
 
   async function runDiagnostics() {
@@ -4140,7 +4166,7 @@ export default function App({ session, onLogout }) {
     );
   }
 
-  const ext = { library, calls, payRequests, groups, umbrellas, clubs, students, teachers };
+  const ext = { library, calls, payRequests, groups, umbrellas, clubs, students, teachers, trainerTasks, trainerAttempts };
   const currentTeacher = teachers.find((t) => t.id === asTeacherId && t.department === department) || teachers.filter((t) => t.department === department)[0];
   const currentStudent = students.find((s) => s.id === asStudentId) || null;
   const currentStudentTeacher = currentStudent ? teachers.find((t) => t.id === currentStudent.teacherId) : null;
@@ -4166,7 +4192,7 @@ export default function App({ session, onLogout }) {
 
   return (
     <div className={"app-root theme-" + shownDepartment}>
-      <style>{CSS + EXTRA_CSS}</style>
+      <style>{CSS + EXTRA_CSS + TRAINER_CSS}</style>
 
       <header className="top-bar">
         <a href="/" className="brand-link" title="На сайт школы"><img src={LOGO_DATA_URI} alt="Study Umbrella" className="brand-logo" /></a>
